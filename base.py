@@ -1,115 +1,153 @@
+# Import necessary modules
 import pygame
-import sys
-from save import load_data, save_data, reset_save  # Importing from save.py
-from game import game_loop  # Importing game_loop from game.py
+import json
+import os
+from game import game_loop
+from save import reset_save, load_save, save_data
 
-# Constants
-PASTEL_ORANGE = (255, 204, 153)
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+# Initialize Pygame
+pygame.init()
+
+# Screen dimensions
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Snake Dungeon")
+
+# Colors
 PASTEL_YELLOW = (255, 253, 208)
-PASTEL_GREEN = (204, 255, 153)
+GREEN = (144, 238, 144)
+PASTEL_ORANGE = (255, 200, 124)
+BLACK = (0, 0, 0)
 
-# Load game data
-data = load_data()
+# Fonts
+font = pygame.font.Font(pygame.font.get_default_font(), 36)
 
-def settings_menu(screen, font, data):
-    screen.fill(PASTEL_YELLOW)
+# Button Class
+class Button:
+    def __init__(self, x, y, width, height, text, color, action=None):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.color = color
+        self.action = action
 
-    # Title
-    title = font.render("Settings", True, BLACK)
-    screen.blit(title, (screen.get_width() // 2 - title.get_width() // 2, 50))
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, self.rect)
+        text_surf = font.render(self.text, True, BLACK)
+        text_rect = text_surf.get_rect(center=self.rect.center)
+        screen.blit(text_surf, text_rect)
 
-    # Control setting
-    controls_text = font.render(f"Controls: {data['controls']}", True, BLACK)
-    screen.blit(controls_text, (screen.get_width() // 2 - controls_text.get_width() // 2, 150))
+    def click(self, pos):
+        if self.rect.collidepoint(pos) and self.action:
+            self.action()
 
-    switch_button = pygame.Rect(screen.get_width() // 2 - 100, 200, 200, 50)
-    pygame.draw.rect(screen, (200, 200, 200), switch_button)
-    switch_text = font.render("Switch Controls", True, BLACK)
-    screen.blit(switch_text, (switch_button.centerx - switch_text.get_width() // 2, switch_button.centery - switch_text.get_height() // 2))
+# Save Data and Controls Initialization
+save_data_content = load_save()
+current_controls = {"scheme": "WASD"}  # Default control scheme
 
-    # Reset save button
-    reset_button = pygame.Rect(screen.get_width() // 2 - 100, 300, 200, 50)
-    pygame.draw.rect(screen, (200, 50, 50), reset_button)
-    reset_text = font.render("Reset Save", True, BLACK)
-    screen.blit(reset_text, (reset_button.centerx - reset_text.get_width() // 2, reset_button.centery - reset_text.get_height() // 2))
+# Function Definitions
+def start_run():
+    print("Starting the game...")  # Debugging
+    pygame.init()  # Restart the pygame display surface
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Snake Dungeon")
+    game_loop(save_data_content, current_controls)
 
-    # Back to menu button
-    back_button = pygame.Rect(screen.get_width() // 2 - 100, 400, 200, 50)
-    pygame.draw.rect(screen, (150, 150, 150), back_button)
-    back_text = font.render("Back to Menu", True, BLACK)
-    screen.blit(back_text, (back_button.centerx - back_text.get_width() // 2, back_button.centery - back_text.get_height() // 2))
+def open_store():
+    print("Opening store...")  # Debugging
+    # store_loop(save_data_content)
 
-    pygame.display.flip()
+def open_gambling():
+    print("Opening gambling...")  # Debugging
+    # gambling_loop(save_data_content)
 
-    # Handle events
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                save_data(data)
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = event.pos
-                if switch_button.collidepoint(x, y):
-                    data["controls"] = "ARROWS" if data["controls"] == "WASD" else "WASD"
-                elif reset_button.collidepoint(x, y):
-                    reset_save(data)  # Reset save functionality
-                elif back_button.collidepoint(x, y):
-                    return
+def open_settings():
+    settings_menu()
 
-            # Redraw menu to update settings
-            screen.fill(PASTEL_YELLOW)
-            screen.blit(title, (screen.get_width() // 2 - title.get_width() // 2, 50))
-            controls_text = font.render(f"Controls: {data['controls']}", True, BLACK)
-            screen.blit(controls_text, (screen.get_width() // 2 - controls_text.get_width() // 2, 150))
-            pygame.draw.rect(screen, (200, 200, 200), switch_button)
-            screen.blit(switch_text, (switch_button.centerx - switch_text.get_width() // 2, switch_button.centery - switch_text.get_height() // 2))
-            pygame.draw.rect(screen, (200, 50, 50), reset_button)
-            screen.blit(reset_text, (reset_button.centerx - reset_text.get_width() // 2, reset_button.centery - reset_text.get_height() // 2))
-            pygame.draw.rect(screen, (150, 150, 150), back_button)
-            screen.blit(back_text, (back_button.centerx - back_text.get_width() // 2, back_button.centery - back_text.get_height() // 2))
-            pygame.display.flip()
-
-
-def draw_menu(screen, font, data):
-    screen.fill(PASTEL_YELLOW)
-
-    # Title
-    title = font.render("Main Menu", True, BLACK)
-    screen.blit(title, (screen.get_width() // 2 - title.get_width() // 2, 50))
-
-    # Total eggs
-    eggs_text = font.render(f"Total Eggs: {data['total_eggs']}", True, BLACK)
-    screen.blit(eggs_text, (screen.get_width() // 2 - eggs_text.get_width() // 2, 100))
+def settings_menu():
+    running = True
 
     # Buttons
-    start_button_rect = pygame.Rect(screen.get_width() // 2 - 75, 300, 150, 50)
-    settings_button_rect = pygame.Rect(screen.get_width() - 60, 10, 50, 50)
+    reset_button = Button(250, 250, 300, 50, "Reset Save File", PASTEL_ORANGE, reset_save)
+    toggle_controls_button = Button(250, 350, 300, 50, "Toggle Controls", PASTEL_ORANGE, toggle_controls)
+    back_button = Button(10, 10, 100, 50, "Back", PASTEL_ORANGE, main_menu)
 
-    pygame.draw.rect(screen, PASTEL_GREEN, start_button_rect)
-    pygame.draw.rect(screen, (200, 200, 200), settings_button_rect)
+    buttons = [reset_button, toggle_controls_button, back_button]
 
-    # Button text
-    start_text = font.render("Start Run", True, BLACK)
-    settings_text = font.render("⚙", True, BLACK)
+    while running:
+        screen.fill(PASTEL_YELLOW)
+        title = font.render("Settings", True, BLACK)
+        title_rect = title.get_rect(center=(WIDTH // 2, 100))
+        screen.blit(title, title_rect)
 
-    screen.blit(start_text, (start_button_rect.centerx - start_text.get_width() // 2, start_button_rect.centery - start_text.get_height() // 2))
-    screen.blit(settings_text, (settings_button_rect.centerx - settings_text.get_width() // 2, settings_button_rect.centery - settings_text.get_height() // 2))
+        # Show current control scheme
+        control_text = f"Current Controls: {current_controls['scheme']}"
+        control_surf = font.render(control_text, True, BLACK)
+        control_rect = control_surf.get_rect(center=(WIDTH // 2, 200))
+        screen.blit(control_surf, control_rect)
 
-    pygame.display.flip()
+        for button in buttons:
+            button.draw(screen)
 
-    waiting = True
-    while waiting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                save_data(data)  # Save when quitting
                 pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = event.pos
-                if start_button_rect.collidepoint(x, y):
-                    game_loop(data)  # Start the game loop when "Start Run" is clicked
-                elif settings_button_rect.collidepoint(x, y):
-                    settings_menu(screen, font, data)  # Open settings when the ⚙ button is clicked
+                exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                for button in buttons:
+                    button.click(event.pos)
+
+        pygame.display.flip()
+
+def toggle_controls():
+    # Toggle between WASD and arrow keys
+    if current_controls["scheme"] == "WASD":
+        current_controls["scheme"] = "Arrow Keys"
+    else:
+        current_controls["scheme"] = "WASD"
+    print(f"Controls switched to: {current_controls['scheme']}")
+
+def main_menu():
+    running = True
+    while running:
+        screen.fill(PASTEL_YELLOW)
+
+        # Draw title
+        title_surf = font.render("Snake Dungeon", True, BLACK)
+        title_rect = title_surf.get_rect(center=(WIDTH // 2, 100))
+        screen.blit(title_surf, title_rect)
+
+        # Draw total eggs
+        total_eggs_text = f"Total Eggs: {save_data_content['total_eggs']}"
+        total_eggs_surf = font.render(total_eggs_text, True, BLACK)
+        screen.blit(total_eggs_surf, (WIDTH - 250, 10))
+
+        # Buttons
+        buttons = [
+            Button(300, 200, 200, 50, "Start Run", GREEN, start_run),
+            Button(100, 200, 150, 50, "Store", PASTEL_ORANGE, open_store),
+            Button(550, 200, 150, 50, "Gambling", PASTEL_ORANGE, open_gambling),
+            Button(10, 10, 100, 50, "Settings", PASTEL_ORANGE, open_settings),
+        ]
+
+        for button in buttons:
+            button.draw(screen)
+
+        # Event handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                for button in buttons:
+                    button.click(event.pos)
+
+        pygame.display.flip()
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    try:
+        print("Starting main menu...")  # Debugging
+        main_menu()
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Debugging
+        pygame.quit()
