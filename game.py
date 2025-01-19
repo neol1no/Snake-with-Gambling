@@ -16,11 +16,18 @@ def restart_application(save_data_content):
     pygame.quit()
     subprocess.run(["python", "base.py"])
 
-
 def game_loop(save_data_content, controls, play_area):
     pygame.init()
+
+    # Adjust screen dimensions based on WIDTH and HEIGHT
+    WIDTH, HEIGHT = 1400, 900
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
+    # Adjust font size dynamically
+    font_size = int(36 * WIDTH / 1400)
+    font = pygame.font.Font(pygame.font.get_default_font(), font_size)
+
     clock = pygame.time.Clock()
-    screen = pygame.display.set_mode((800, 600))
 
     # Initialize game state
     snake = [(150, 150), (140, 150), (130, 150)]
@@ -38,14 +45,15 @@ def game_loop(save_data_content, controls, play_area):
     # Button for returning to main menu
     class Button:
         def __init__(self, x, y, width, height, text, color, action=None):
-            self.rect = pygame.Rect(x, y, width, height)
+            # Scale position and size based on screen width/height
+            self.rect = pygame.Rect(int(x * WIDTH), int(y * HEIGHT), int(width * WIDTH), int(height * HEIGHT))
             self.text = text
             self.color = color
             self.action = action
 
         def draw(self, screen):
             pygame.draw.rect(screen, self.color, self.rect)
-            text_surf = pygame.font.Font(None, 36).render(self.text, True, BLACK)
+            text_surf = font.render(self.text, True, BLACK)
             text_rect = text_surf.get_rect(center=self.rect.center)
             screen.blit(text_surf, text_rect)
 
@@ -53,7 +61,7 @@ def game_loop(save_data_content, controls, play_area):
             if self.rect.collidepoint(pos) and self.action:
                 self.action()
 
-    back_button = Button(10, 550, 200, 50, "Back to Menu", (255, 100, 100), lambda: restart_application(save_data_content))
+    back_button = Button(0.01, 0.91, 0.14, 0.06, "Back to Menu", (255, 100, 100), lambda: restart_application(save_data_content))
 
     while running:
         screen.fill(WHITE)
@@ -62,25 +70,27 @@ def game_loop(save_data_content, controls, play_area):
         # Draw the snake
         for segment in snake:
             pygame.draw.rect(screen, SNAKE_COLOR, (*segment, 10, 10))
-        
+
         # Draw the egg
         pygame.draw.rect(screen, EGG_COLOR, (*egg, 10, 10))
 
         # Timer
         elapsed_time = (pygame.time.get_ticks() - start_ticks) // 1000
-        timer_text = pygame.font.Font(None, 36).render(f"Time: {elapsed_time}s", True, BLACK)
-        screen.blit(timer_text, (600, 10))
+        timer_text = font.render(f"Time: {elapsed_time}s", True, BLACK)
 
         # Collected eggs
-        collected_text = pygame.font.Font(None, 36).render(f"Eggs: {score}", True, BLACK)
-        screen.blit(collected_text, (600, 50))
+        collected_text = font.render(f"Eggs: {score}", True, BLACK)
 
         # Snake length
-        length_text = pygame.font.Font(None, 36).render(f"Length: {len(snake)}", True, BLACK)
-        screen.blit(length_text, (600, 90))
+        length_text = font.render(f"Length: {len(snake)}", True, BLACK)
 
-        # Draw the back button
-        back_button.draw(screen)
+        # Positions for each text (aligned to top-right under each other)
+        text_x = WIDTH - 10 - max(timer_text.get_width(), collected_text.get_width(), length_text.get_width())  # Right-aligned
+        text_y = 10
+
+        screen.blit(timer_text, (text_x, text_y))
+        screen.blit(collected_text, (text_x, text_y + timer_text.get_height() + 5))
+        screen.blit(length_text, (text_x, text_y + timer_text.get_height() + collected_text.get_height() + 10))
 
         # Event handling
         for event in pygame.event.get():
@@ -89,8 +99,7 @@ def game_loop(save_data_content, controls, play_area):
                 save_data(save_data_content)
                 pygame.quit()
                 exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                back_button.click(event.pos)
+
             elif event.type == pygame.KEYDOWN:
                 if controls["scheme"] == "WASD":
                     if event.key == pygame.K_w and snake_dir != (0, 10):
@@ -121,6 +130,9 @@ def game_loop(save_data_content, controls, play_area):
                 growth_counter = 0
             egg = (random.randint(1, play_area.width // 10 - 1) * 10 + play_area.x,
                    random.randint(1, play_area.height // 10 - 1) * 10 + play_area.y)
+
+        # Draw back button
+        back_button.draw(screen)
 
         pygame.display.flip()
         clock.tick(FPS)

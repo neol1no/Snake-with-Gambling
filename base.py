@@ -8,8 +8,8 @@ from save import load_save, save_data, reset_save
 pygame.init()
 
 # Screen dimensions
-WIDTH, HEIGHT = 800, 600
-PLAY_AREA = pygame.Rect(100, 100, 600, 400)
+WIDTH, HEIGHT = 1400, 900
+PLAY_AREA = pygame.Rect(int(WIDTH * 0.1), int(HEIGHT * 0.1), int(WIDTH * 0.43), int(HEIGHT * 0.44))
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Snake Dungeon")
 
@@ -22,7 +22,7 @@ RED = (255, 0, 0)
 ORANGE = (255, 165, 0)
 
 # Fonts
-font = pygame.font.Font(pygame.font.get_default_font(), 36)
+font = pygame.font.Font(pygame.font.get_default_font(), int(36 * WIDTH / 1400))  # Adjust font size based on screen width
 
 # Load save data
 save_data_content = load_save()
@@ -39,7 +39,8 @@ def restart_application():
 # Button class
 class Button:
     def __init__(self, x, y, width, height, text, color, action=None):
-        self.rect = pygame.Rect(x, y, width, height)
+        # Scale position and size based on screen width/height
+        self.rect = pygame.Rect(int(x), int(y), int(width), int(height))  # Make sure to pass in pixel values
         self.text = text
         self.color = color
         self.action = action
@@ -73,24 +74,43 @@ def main_menu():
         gambling.gambling_menu(save_data_content)
         restart_application()
 
+    def open_settings():
+        settings_menu()  # Settings-Screen aufrufen
+
+    # Button dimensions and gap
+    button_width, button_height = 0.14, 0.06  # Relative sizes
+    button_gap = 0.02  # Gap between buttons vertically
+
+    # Convert relative button sizes to pixel values
+    button_width_px = int(button_width * WIDTH)
+    button_height_px = int(button_height * HEIGHT)
+    button_gap_px = int(button_gap * HEIGHT)
+
+    # Calculate total height of all buttons with gaps
+    total_button_height_px = 4 * button_height_px + 3 * button_gap_px
+
+    # Calculate starting y-position to center the buttons vertically
+    buttons_start_y = (HEIGHT - total_button_height_px) // 2
+
+    # Position buttons horizontally centered and vertically spaced
     buttons = [
-        Button(300, 150, 200, 50, "Start Game", GREEN, start_game),
-        Button(300, 250, 200, 50, "Store", ORANGE, open_store),
-        Button(300, 350, 200, 50, "Gambling", ORANGE, open_gambling),
-        Button(300, 450, 200, 50, "Exit", RED, exit)
+        Button((WIDTH - button_width_px) // 2, buttons_start_y, button_width_px, button_height_px, "Start Game", GREEN, start_game),
+        Button((WIDTH - button_width_px) // 2, buttons_start_y + (button_height_px + button_gap_px), button_width_px, button_height_px, "Store", ORANGE, open_store),
+        Button((WIDTH - button_width_px) // 2, buttons_start_y + 2 * (button_height_px + button_gap_px), button_width_px, button_height_px, "Gambling", ORANGE, open_gambling),
+        Button((WIDTH - button_width_px) // 2, buttons_start_y + 3 * (button_height_px + button_gap_px), button_width_px, button_height_px, "Exit", RED, exit)
     ]
 
     while running:
         screen.fill(PASTEL_YELLOW)
         # Draw title
         title_surf = font.render("Snake Dungeon", True, BLACK)
-        title_rect = title_surf.get_rect(center=(WIDTH // 2, 50))
+        title_rect = title_surf.get_rect(center=(WIDTH // 2, int(0.06 * HEIGHT)))
         screen.blit(title_surf, title_rect)
 
         # Draw total eggs
         total_eggs_text = f"Total Eggs: {save_data_content['total_eggs']}"
         total_eggs_surf = font.render(total_eggs_text, True, BLACK)
-        screen.blit(total_eggs_surf, (10, 10))
+        screen.blit(total_eggs_surf, (int(0.01 * WIDTH), int(0.01 * HEIGHT)))
 
         # Draw buttons
         for button in buttons:
@@ -109,6 +129,48 @@ def main_menu():
     pygame.quit()
 
 
+# Settings menu
+def settings_menu():
+    running = True
+
+    def reset_game():
+        global save_data_content
+        save_data(save_data_content)
+        print("Save data saved before reset!")
+        reset_save()
+        print("Save data reset!")
+        save_data_content = load_save()
+        restart_application()
+
+    def back_to_main_menu():
+        restart_application()
+
+    buttons = [
+        Button(0.21 * WIDTH, 0.17 * HEIGHT, 0.14 * WIDTH, 0.06 * HEIGHT, "Reset Save", RED, reset_game),
+        Button(0.21 * WIDTH, 0.22 * HEIGHT, 0.14 * WIDTH, 0.06 * HEIGHT, "Back to Main Menu", GREEN, back_to_main_menu)
+    ]
+
+    while running:
+        screen.fill(PASTEL_YELLOW)
+
+        title_surf = font.render("Settings", True, BLACK)
+        title_rect = title_surf.get_rect(center=(WIDTH // 2, int(0.06 * HEIGHT)))
+        screen.blit(title_surf, title_rect)
+
+        for button in buttons:
+            button.draw(screen)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                for button in buttons:
+                    button.click(event.pos)
+
+        pygame.display.flip()
+
+    pygame.quit()
+
+
 if __name__ == "__main__":
     main_menu()
-
