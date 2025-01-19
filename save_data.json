@@ -1,1 +1,1 @@
-{"total_eggs": 92, "controls": "WASD"}
+{"total_eggs": 75, "controls": "WASD", "egg_multiplier": 11, "growth_delay": 9, "eggs_per_level": 2048}
