@@ -1,19 +1,24 @@
 import pygame
 import os
 import subprocess
+import tkinter as tk
 from game import game_loop
 from save import load_save, save_data, reset_save
 
-# Initialize Pygame
+
 pygame.init()
 
-# Screen dimensions
-WIDTH, HEIGHT = 1400, 900
+root = tk.Tk()
+WIDTH = root.winfo_screenwidth()
+HEIGHT = root.winfo_screenheight()
+root.destroy()
+print(f"Screen width: {WIDTH}, Screen height: {HEIGHT}")
+
 PLAY_AREA = pygame.Rect(int(WIDTH * 0.1), int(HEIGHT * 0.1), int(WIDTH * 0.43), int(HEIGHT * 0.44))
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Snake Dungeon")
 
-# Colors
+
 PASTEL_YELLOW = (255, 253, 208)
 PASTEL_ORANGE = (255, 200, 124)
 GREEN = (144, 238, 144)

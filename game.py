@@ -1,6 +1,7 @@
 import pygame
 import random
 import subprocess
+import tkinter as tk
 from save import save_data
 
 # Game settings
@@ -10,6 +11,12 @@ EGG_COLOR = (255, 0, 0)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
+pygame.init()
+root = tk.Tk()
+WIDTH = root.winfo_screenwidth()
+HEIGHT = root.winfo_screenheight()
+root.destroy()
+
 # Restart the application
 def restart_application(save_data_content):
     save_data(save_data_content)
@@ -18,9 +25,6 @@ def restart_application(save_data_content):
 
 def game_loop(save_data_content, controls, play_area):
     pygame.init()
-
-    # Adjust screen dimensions based on WIDTH and HEIGHT
-    WIDTH, HEIGHT = 1400, 900
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
     # Adjust font size dynamically
@@ -30,10 +34,11 @@ def game_loop(save_data_content, controls, play_area):
     clock = pygame.time.Clock()
 
     # Initialize game state
+    GRID_SIZE = 10
     snake = [(150, 150), (140, 150), (130, 150)]
-    snake_dir = (10, 0)
-    egg = (random.randint(1, play_area.width // 10 - 1) * 10 + play_area.x,
-           random.randint(1, play_area.height // 10 - 1) * 10 + play_area.y)
+    snake_dir = (GRID_SIZE, 0)
+    egg = (random.randint(play_area.x // GRID_SIZE, (play_area.x + play_area.width) // GRID_SIZE - 1) * GRID_SIZE,
+           random.randint(play_area.y // GRID_SIZE, (play_area.y + play_area.height) // GRID_SIZE - 1) * GRID_SIZE)
     score = 0
     snake_length = len(snake)
     start_ticks = pygame.time.get_ticks()
@@ -69,10 +74,10 @@ def game_loop(save_data_content, controls, play_area):
 
         # Draw the snake
         for segment in snake:
-            pygame.draw.rect(screen, SNAKE_COLOR, (*segment, 10, 10))
+            pygame.draw.rect(screen, SNAKE_COLOR, (*segment, GRID_SIZE, GRID_SIZE))
 
         # Draw the egg
-        pygame.draw.rect(screen, EGG_COLOR, (*egg, 10, 10))
+        pygame.draw.rect(screen, EGG_COLOR, (*egg, GRID_SIZE, GRID_SIZE))
 
         # Timer
         elapsed_time = (pygame.time.get_ticks() - start_ticks) // 1000
@@ -102,21 +107,21 @@ def game_loop(save_data_content, controls, play_area):
 
             elif event.type == pygame.KEYDOWN:
                 if controls["scheme"] == "WASD":
-                    if event.key == pygame.K_w and snake_dir != (0, 10):
-                        snake_dir = (0, -10)
-                    elif event.key == pygame.K_s and snake_dir != (0, -10):
-                        snake_dir = (0, 10)
-                    elif event.key == pygame.K_a and snake_dir != (10, 0):
-                        snake_dir = (-10, 0)
-                    elif event.key == pygame.K_d and snake_dir != (-10, 0):
-                        snake_dir = (10, 0)
+                    if event.key == pygame.K_w and snake_dir != (0, GRID_SIZE):
+                        snake_dir = (0, -GRID_SIZE)
+                    elif event.key == pygame.K_s and snake_dir != (0, -GRID_SIZE):
+                        snake_dir = (0, GRID_SIZE)
+                    elif event.key == pygame.K_a and snake_dir != (GRID_SIZE, 0):
+                        snake_dir = (-GRID_SIZE, 0)
+                    elif event.key == pygame.K_d and snake_dir != (-GRID_SIZE, 0):
+                        snake_dir = (GRID_SIZE, 0)
 
         # Move snake
         new_head = (snake[0][0] + snake_dir[0], snake[0][1] + snake_dir[1])
         snake = [new_head] + snake[:-1]
 
         # Check collisions
-        if new_head in snake[1:] or not play_area.contains(pygame.Rect(*new_head, 10, 10)):
+        if new_head in snake[1:] or not play_area.contains(pygame.Rect(*new_head, GRID_SIZE, GRID_SIZE)):
             save_data_content['total_eggs'] += score
             save_data(save_data_content)
             break
@@ -128,8 +133,8 @@ def game_loop(save_data_content, controls, play_area):
             if growth_counter >= growth_delay + 1:  # Apply growth delay
                 snake.append(snake[-1])
                 growth_counter = 0
-            egg = (random.randint(1, play_area.width // 10 - 1) * 10 + play_area.x,
-                   random.randint(1, play_area.height // 10 - 1) * 10 + play_area.y)
+            egg = (random.randint(play_area.x // GRID_SIZE, (play_area.x + play_area.width) // GRID_SIZE - 1) * GRID_SIZE,
+                   random.randint(play_area.y // GRID_SIZE, (play_area.y + play_area.height) // GRID_SIZE - 1) * GRID_SIZE)
 
         # Draw back button
         back_button.draw(screen)

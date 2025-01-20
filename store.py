@@ -1,9 +1,13 @@
 import pygame
 import subprocess
+import tkinter as tk
 from save import save_data
 
 # Store settings
-WIDTH, HEIGHT = 1400, 900
+root = tk.Tk()
+WIDTH = root.winfo_screenwidth()
+HEIGHT = root.winfo_screenheight()
+root.destroy()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Snake Dungeon Store")
 
@@ -77,12 +81,27 @@ def store_loop(save_data_content):
     def back_to_menu():
         restart_application(save_data_content)
 
-    # Buttons with relative positioning based on the screen size
+
+    button_width, button_height = 0.14, 0.06  
+    button_gap = 0.02  
+    button_width_px = int(button_width * WIDTH)
+    button_height_px = int(button_height * HEIGHT)
+    button_gap_px = int(button_gap * HEIGHT)
+
+# Define buttons list before calculating total_button_height_px
     buttons = [
-        Button(0.21, 0.17, 0.14, 0.06, "Upgrade Egg Multiplier", GREEN, upgrade_eggs),
-        Button(0.21, 0.27, 0.14, 0.06, "Upgrade Growth Delay", PASTEL_ORANGE, upgrade_growth),
-        Button(0.21, 0.37, 0.14, 0.06, "Back to Menu", RED, back_to_menu),
+    Button(0, 0, button_width, button_height, "Upgrade Egg Multiplier", GREEN, upgrade_eggs),
+    Button(0, 0, button_width, button_height, "Upgrade Growth Delay", PASTEL_ORANGE, upgrade_growth),
+    Button(0, 0, button_width, button_height, "Back to Menu", RED, back_to_menu),
     ]
+
+    total_button_height_px = len(buttons) * button_height_px + (len(buttons) - 1) * button_gap_px
+    buttons_start_y = (HEIGHT - total_button_height_px) // 2
+
+# Update button positions with relative positioning based on the screen size
+    buttons[0].rect.topleft = ((WIDTH - button_width_px) // 2, buttons_start_y)
+    buttons[1].rect.topleft = ((WIDTH - button_width_px) // 2, buttons_start_y + button_height_px + button_gap_px)
+    buttons[2].rect.topleft = ((WIDTH - button_width_px) // 2, buttons_start_y + 2 * (button_height_px + button_gap_px))
 
     while running:
         screen.fill(WHITE)

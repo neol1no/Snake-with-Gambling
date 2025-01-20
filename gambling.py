@@ -1,10 +1,14 @@
 import pygame
 import random
 import subprocess
+import tkinter as tk
 from save import save_data
 
 # Screen settings
-WIDTH, HEIGHT = 1400, 900
+root = tk.Tk()
+WIDTH = root.winfo_screenwidth()
+HEIGHT = root.winfo_screenheight()
+root.destroy()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Gambling Games")
 
