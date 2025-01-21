@@ -1,2 +1,2 @@
-# School pyhton game
- python game for school
+# python game
+ python game where you play snake and can gamble
