@@ -1,32 +1,7 @@
 import pygame
 import random
 import math
-
-class Button:
-    def __init__(self, x, y, width, height, text, color=(100, 100, 100), hover_color=(150, 150, 150)):
-        self.rect = pygame.Rect(x, y, width, height)
-        self.text = text
-        self.color = color
-        self.hover_color = hover_color
-        self.is_hovered = False
-
-    def draw(self, screen):
-        color = self.hover_color if self.is_hovered else self.color
-        pygame.draw.rect(screen, color, self.rect)
-        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
-        
-        font = pygame.font.Font(None, 36)
-        text_surface = font.render(self.text, True, (255, 255, 255))
-        text_rect = text_surface.get_rect(center=self.rect.center)
-        screen.blit(text_surface, text_rect)
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEMOTION:
-            self.is_hovered = self.rect.collidepoint(event.pos)
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if self.is_hovered:
-                return True
-        return False
+from sites.button import Button
 
 class Gambling:
     def __init__(self, game):
@@ -40,10 +15,10 @@ class Gambling:
         self.wheel_angle = 0
         self.wheel_spinning = False
         self.last_frame_time = pygame.time.get_ticks()
-        self.rotation_count = 0  # Track number of rotations
-        self.start_angle = 0     # Store initial angle for rotation counting
-        self.total_rotation = 0  # Track total rotation without modulo
-        self.initial_phase = True # Track if we're in initial 3 rotations phase
+        self.rotation_count = 0
+        self.start_angle = 0
+        self.total_rotation = 0
+        self.initial_phase = True
         
         # Define wheel sections with their angle ranges and properties
         self.wheel_sections = [
@@ -82,7 +57,7 @@ class Gambling:
 
     def load_wheel_image(self):
         try:
-            self.wheel_image = pygame.image.load("wheel.png")
+            self.wheel_image = pygame.image.load("assets/wheel.png")
             self.wheel_image = pygame.transform.scale(self.wheel_image, (400, 400))
             self.wheel_rect = self.wheel_image.get_rect()
         except:
@@ -92,32 +67,23 @@ class Gambling:
     def setup_buttons(self):
         button_width = 200
         button_height = 50
-        mode_center_x = self.game.width // 2 - button_width // 2  # Original center calculation for mode buttons
+        center_x = self.game.width // 2 - button_width // 2
         
+        # Mode selection buttons
         self.mode_buttons = {
-            "slots": Button(mode_center_x, 300, button_width, button_height, "Slots"),
-            "wheel": Button(mode_center_x, 370, button_width, button_height, "Wheel")
+            "slots": Button(center_x, 300, button_width, button_height, "Slots"),
+            "wheel": Button(center_x, 370, button_width, button_height, "Wheel")
         }
         
-        # Move bet buttons and spin button to bottom
-        bottom_y = self.game.height - 150  # Position above "Press ESC to return"
-        center_x = self.game.width // 2  # Exact center for bet buttons
+        # Bet adjustment buttons
+        bet_button_width = 100
         self.bet_buttons = {
-            "increase": Button(center_x - 110 - 20, bottom_y - 60, button_width//2, button_height, "+"),  # 20px left of original position
-            "decrease": Button(center_x + 10 + 20, bottom_y - 60, button_width//2, button_height, "-")   # 20px right of original position
+            "increase": Button(center_x + button_width + 30, 600, bet_button_width, button_height, "+10"),
+            "decrease": Button(center_x - bet_button_width - 30, 600, bet_button_width, button_height, "-10")
         }
         
-        self.spin_button = Button(center_x - button_width//2, bottom_y, button_width, button_height, "Spin")
-
-        # Debug buttons for wheel
-        debug_button_width = 60
-        debug_button_height = 30
-        debug_start_x = 10
-        debug_start_y = 190  # Moved below the rotation counter (was 160)
-        self.debug_buttons = {
-            "fine_minus": Button(debug_start_x, debug_start_y, debug_button_width, debug_button_height, "-1°"),
-            "fine_plus": Button(debug_start_x + 70, debug_start_y, debug_button_width, debug_button_height, "+1°")
-        }
+        # Spin button
+        self.spin_button = Button(center_x, 600, button_width, button_height, "Spin")
 
     def get_random_section(self):
         # Generate a random number between 0 and 1
@@ -150,61 +116,50 @@ class Gambling:
 
     def draw(self, screen):
         screen.fill((20, 20, 20))
+        
+        # Draw title with shadow
         font = pygame.font.Font(None, 74)
-        title = font.render("Gambling", True, (255, 255, 255))
-        screen.blit(title, (self.game.width//2 - title.get_width()//2, 50))
-
+        title_shadow = font.render("Gambling", True, (0, 0, 0))
+        title_text = font.render("Gambling", True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(self.game.width//2, 50))
+        screen.blit(title_shadow, (title_rect.x + 2, title_rect.y + 2))
+        screen.blit(title_text, title_rect)
+        
+        # Draw eggs count with shadow
         font = pygame.font.Font(None, 36)
+        eggs_shadow = font.render(f"Eggs: {self.game.eggs}", True, (0, 0, 0))
         eggs_text = font.render(f"Eggs: {self.game.eggs}", True, (255, 255, 255))
+        screen.blit(eggs_shadow, (12, 12))
         screen.blit(eggs_text, (10, 10))
-
+        
         if self.current_game is None:
-            # Draw mode selection screen
-            subtitle = font.render("Select Game Mode", True, (255, 255, 255))
-            screen.blit(subtitle, (self.game.width//2 - subtitle.get_width()//2, 200))
-            
+            # Draw mode selection buttons
             for button in self.mode_buttons.values():
                 button.draw(screen)
         else:
+            # Draw bet amount with shadow
+            bet_shadow = font.render(f"Bet: {self.bet_amount}", True, (0, 0, 0))
+            bet_text = font.render(f"Bet: {self.bet_amount}", True, (255, 255, 255))
+            bet_rect = bet_text.get_rect(center=(self.game.width//2, 350))
+            screen.blit(bet_shadow, (bet_rect.x + 2, bet_rect.y + 2))
+            screen.blit(bet_text, bet_rect)
+            
+            # Draw bet buttons and spin button
+            for button in self.bet_buttons.values():
+                button.draw(screen)
+            self.spin_button.draw(screen)
+            
             if self.current_game == "slots":
                 self.draw_slots(screen)
-                # Draw buttons below slots
-                for button in self.bet_buttons.values():
-                    button.draw(screen)
-                if not self.spinning and self.bet_amount > 0:
-                    self.spin_button.draw(screen)
             else:
-                # Draw wheel first
                 self.draw_wheel(screen)
-                # Draw buttons on top
-                for button in self.bet_buttons.values():
-                    button.draw(screen)
-                if not self.wheel_spinning and self.bet_amount > 0:
-                    self.spin_button.draw(screen)
-                
-                # Draw debug info
-                debug_text = font.render(f"Wheel Angle: {self.wheel_angle:.1f}°", True, (255, 255, 255))
-                screen.blit(debug_text, (10, 80))
-                
-                current_section = self.get_current_section()
-                if current_section:
-                    section_text = font.render(
-                        f"Current Section: {current_section['name']} ({current_section['multiplier']}x)", 
-                        True, (255, 255, 255)
-                    )
-                    screen.blit(section_text, (10, 120))
-                
-                # Draw rotation counter
-                if self.wheel_spinning:
-                    rotation_text = font.render(f"Rotations: {self.rotation_count}", True, (255, 255, 255))
-                    screen.blit(rotation_text, (10, 160))
-                
-                # Draw debug buttons
-                for button in self.debug_buttons.values():
-                    button.draw(screen)
-
+        
+        # Draw back text with shadow
+        back_shadow = font.render("Press ESC to return", True, (0, 0, 0))
         back_text = font.render("Press ESC to return", True, (255, 255, 255))
-        screen.blit(back_text, (self.game.width//2 - back_text.get_width()//2, self.game.height - 50))
+        back_rect = back_text.get_rect(center=(self.game.width//2, self.game.height - 50))
+        screen.blit(back_shadow, (back_rect.x + 2, back_rect.y + 2))
+        screen.blit(back_text, back_rect)
 
     def draw_slots(self, screen):
         font = pygame.font.Font(None, 100)
@@ -238,12 +193,6 @@ class Gambling:
             # Fallback to drawing wheel sections
             radius = 200
             pygame.draw.circle(screen, (50, 50, 50), (center_x, center_y), radius + 5)
-            
-            for section in self.wheel_sections:
-                for start, end in section["ranges"]:
-                    pygame.draw.arc(screen, section["color"], 
-                                  (center_x - radius, center_y - radius, radius * 2, radius * 2),
-                                  math.radians(start), math.radians(end), radius)
 
         # Draw pointer
         pointer_points = [
@@ -363,53 +312,48 @@ class Gambling:
             self.game.eggs += winnings
             print(f"Won {winnings} eggs! ({current_section['name']} - {current_section['multiplier']}x)")
 
-    def handle_mouse_motion(self, event):
-        if self.current_game is None:
-            for button in self.mode_buttons.values():
-                button.handle_event(event)
-        else:
-            for button in self.bet_buttons.values():
-                button.handle_event(event)
-            if not (self.spinning or self.wheel_spinning) and self.bet_amount > 0:
-                self.spin_button.handle_event(event)
-            if self.current_game == "wheel":
-                for button in self.debug_buttons.values():
-                    button.handle_event(event)
-
     def handle_input(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        if event.type == pygame.MOUSEMOTION:
+            if self.current_game is None:
+                for button in self.mode_buttons.values():
+                    button.handle_event(event)
+            else:
+                for button in self.bet_buttons.values():
+                    button.handle_event(event)
+                self.spin_button.handle_event(event)
+        
+        elif event.type == pygame.MOUSEBUTTONDOWN:
             if self.current_game is None:
                 for button_name, button in self.mode_buttons.items():
                     if button.handle_event(event):
-                        if button_name == "wheel":  # Only allow wheel mode
-                            self.current_game = button_name
+                        self.current_game = button_name
+                        self.bet_amount = 10
+                        if button_name == "wheel":
+                            self.wheel_angle = 0
+                            self.rotation_count = 0
+                        return
             else:
-                if self.current_game == "wheel":
-                    # Handle debug buttons
-                    for button_name, button in self.debug_buttons.items():
-                        if button.handle_event(event):
-                            if button_name == "fine_minus":
-                                self.wheel_angle = (self.wheel_angle - 1) % 360
-                            elif button_name == "fine_plus":
-                                self.wheel_angle = (self.wheel_angle + 1) % 360
-                            print(f"Wheel angle: {self.wheel_angle:.1f}°")
-
                 for button_name, button in self.bet_buttons.items():
                     if button.handle_event(event):
                         if button_name == "increase":
-                            if self.game.eggs > 0:
-                                self.bet_amount = min(self.bet_amount * 2, self.game.eggs)
+                            self.bet_amount = min(self.bet_amount + 10, self.game.eggs)
                         else:
-                            self.bet_amount = max(self.bet_amount // 2, 0)
+                            self.bet_amount = max(self.bet_amount - 10, 10)
+                        return
                 
-                if not (self.spinning or self.wheel_spinning) and self.bet_amount > 0:
+                if not self.spinning and not self.wheel_spinning:
                     if self.spin_button.handle_event(event):
-                        if self.current_game == "wheel" and self.game.eggs >= self.bet_amount:
+                        if self.game.eggs >= self.bet_amount:
                             self.game.eggs -= self.bet_amount
-                            self.wheel_spinning = True
-                            # Reset target angle when starting a new spin
-                            if hasattr(self, 'target_angle'):
-                                delattr(self, 'target_angle')
+                            if self.current_game == "slots":
+                                self.spinning = True
+                                self.spin_time = pygame.time.get_ticks()
+                            else:
+                                self.wheel_spinning = True
+                                self.start_angle = self.wheel_angle
+                                self.rotation_count = 0
+                                self.total_rotation = 0
+                        return
         
         # Handle escape key
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
