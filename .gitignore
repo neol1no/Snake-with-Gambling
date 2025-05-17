@@ -24,3 +24,5 @@ env/
 Thumbs.db 
 
 save_data.json
+.cursor/
+.cursor/rules
