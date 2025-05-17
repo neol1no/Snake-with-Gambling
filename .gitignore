@@ -26,3 +26,5 @@ Thumbs.db
 save_data.json
 .cursor/
 .cursor/rules
+
+development/snake-gambling/.cursor/
