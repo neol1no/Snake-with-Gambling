@@ -1,7 +1,7 @@
 import pygame
 
 class Button:
-    def __init__(self, x, y, width, height, text, color=(40, 40, 40), hover_color=(60, 60, 60)):
+    def __init__(self, x, y, width, height, text, game, color=(40, 40, 40), hover_color=(60, 60, 60)):
         self.rect = pygame.Rect(x, y, width, height)
         self.text = text
         self.color = color
@@ -12,53 +12,57 @@ class Button:
         self.corner_radius = 10
         self.shadow_offset = 3
         self.shadow_color = (20, 20, 20)
+        self.game = game
 
     def draw(self, screen):
-        # Draw shadow
-        shadow_rect = self.rect.copy()
-        shadow_rect.x += self.shadow_offset
-        shadow_rect.y += self.shadow_offset
-        pygame.draw.rect(screen, self.shadow_color, shadow_rect, border_radius=self.corner_radius)
+        scale_x = self.game.scale_x
+        scale_y = self.game.scale_y
         
-        # Draw button with current color
-        pygame.draw.rect(screen, self.current_color, self.rect, border_radius=self.corner_radius)
+
+        scaled_rect = pygame.Rect(
+            int(self.rect.x * scale_x),
+            int(self.rect.y * scale_y),
+            int(self.rect.width * scale_x),
+            int(self.rect.height * scale_y)
+        )
         
-        # Draw border
+
+        shadow_rect = scaled_rect.copy()
+        shadow_rect.x += int(self.shadow_offset * scale_x)
+        shadow_rect.y += int(self.shadow_offset * scale_y)
+        pygame.draw.rect(screen, self.shadow_color, shadow_rect, border_radius=int(self.corner_radius * min(scale_x, scale_y)))
+        
+
+        pygame.draw.rect(screen, self.current_color, scaled_rect, border_radius=int(self.corner_radius * min(scale_x, scale_y)))
+
         border_color = (100, 100, 100) if self.is_hovered else (80, 80, 80)
-        pygame.draw.rect(screen, border_color, self.rect, 2, border_radius=self.corner_radius)
-        
-        # Draw text with shadow
-        font = pygame.font.Font(None, 36)
+        pygame.draw.rect(screen, border_color, scaled_rect, int(2 * min(scale_x, scale_y)), border_radius=int(self.corner_radius * min(scale_x, scale_y)))
+
+        font = pygame.font.Font(None, int(36 * min(scale_x, scale_y)))
         text_surface = font.render(self.text, True, (255, 255, 255))
-        text_rect = text_surface.get_rect(center=self.rect.center)
-        
-        # Text shadow
+        text_rect = text_surface.get_rect(center=scaled_rect.center)
+
         shadow_surface = font.render(self.text, True, (0, 0, 0))
         shadow_rect = text_rect.copy()
-        shadow_rect.x += 1
-        shadow_rect.y += 1
+        shadow_rect.x += int(1 * scale_x)
+        shadow_rect.y += int(1 * scale_y)
         screen.blit(shadow_surface, shadow_rect)
-        
-        # Main text
+
         screen.blit(text_surface, text_rect)
 
     def handle_event(self, event):
+        scale_x = self.game.scale_x
+        scale_y = self.game.scale_y
+
+        scaled_rect = pygame.Rect(
+            int(self.rect.x * scale_x),
+            int(self.rect.y * scale_y),
+            int(self.rect.width * scale_x),
+            int(self.rect.height * scale_y)
+        )
+        
         if event.type == pygame.MOUSEMOTION:
-            was_hovered = self.is_hovered
-            self.is_hovered = self.rect.collidepoint(event.pos)
-            
-            # Smooth color transition
-            if self.is_hovered and not was_hovered:
-                self.target_color = self.hover_color
-            elif not self.is_hovered and was_hovered:
-                self.target_color = self.color
-                
-            if hasattr(self, 'target_color'):
-                r = self.current_color[0] + (self.target_color[0] - self.current_color[0]) * self.animation_speed
-                g = self.current_color[1] + (self.target_color[1] - self.current_color[1]) * self.animation_speed
-                b = self.current_color[2] + (self.target_color[2] - self.current_color[2]) * self.animation_speed
-                self.current_color = (int(r), int(g), int(b))
-                
+            self.is_hovered = scaled_rect.collidepoint(event.pos)
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if self.is_hovered:
                 return True

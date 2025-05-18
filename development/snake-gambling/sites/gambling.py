@@ -19,6 +19,9 @@ class Gambling:
         self.start_angle = 0
         self.total_rotation = 0
         self.initial_phase = True
+        self.last_win = None
+        self.last_multiplier = None
+        self.win_display_time = 0
         
         # Winkel definitionen
         self.wheel_sections = [
@@ -69,30 +72,28 @@ class Gambling:
         button_height = 50
         center_x = self.game.width // 2 - button_width // 2  
         
-        # Mode selection buttons
         self.mode_buttons = {
-            "slots": Button(center_x, 300, button_width, button_height, "Slots"),
-            "wheel": Button(center_x, 370, button_width, button_height, "Wheel")
+            "slots": Button(center_x, 300, button_width, button_height, "Slots", self.game),
+            "wheel": Button(center_x, 370, button_width, button_height, "Wheel", self.game)
         }
-        
         
         bottom_y = self.game.height - 150  
         center_x = self.game.width // 2  
+        button_spacing = 200  
         self.bet_buttons = {
-            "increase": Button(center_x - 110 - 20, bottom_y - 60, button_width//2, button_height, "+"),  
-            "decrease": Button(center_x + 10 + 20, bottom_y - 60, button_width//2, button_height, "-")   
+            "increase": Button(center_x - button_spacing, bottom_y - 60, button_width//2, button_height, "+", self.game),  
+            "decrease": Button(center_x + button_spacing - button_width//2, bottom_y - 60, button_width//2, button_height, "-", self.game)   
         }
         
-        self.spin_button = Button(center_x - button_width//2, bottom_y, button_width, button_height, "Spin")
-
+        self.spin_button = Button(center_x - button_width//2, bottom_y, button_width, button_height, "Spin", self.game)
         
         debug_button_width = 60
         debug_button_height = 30
         debug_start_x = 10
         debug_start_y = 190  
         self.debug_buttons = {
-            "fine_minus": Button(debug_start_x, debug_start_y, debug_button_width, debug_button_height, "-1°"),
-            "fine_plus": Button(debug_start_x + 70, debug_start_y, debug_button_width, debug_button_height, "+1°")
+            "fine_minus": Button(debug_start_x, debug_start_y, debug_button_width, debug_button_height, "-1°", self.game),
+            "fine_plus": Button(debug_start_x + 70, debug_start_y, debug_button_width, debug_button_height, "+1°", self.game)
         }
 
     def get_random_section(self):
@@ -127,37 +128,36 @@ class Gambling:
     def draw(self, screen):
         screen.fill((20, 20, 20))
         
-        # Draw title with shadow
-        font = pygame.font.Font(None, 74)
+        
+        font = pygame.font.Font(None, int(74 * min(self.game.scale_x, self.game.scale_y)))
         title_shadow = font.render("Gambling", True, (0, 0, 0))
         title_text = font.render("Gambling", True, (255, 255, 255))
-        title_rect = title_text.get_rect(center=(self.game.width//2, 50))
+        title_rect = title_text.get_rect(center=(self.game.display_width//2, int(50 * self.game.scale_y)))
         screen.blit(title_shadow, (title_rect.x + 2, title_rect.y + 2))
         screen.blit(title_text, title_rect)
         
-        # Draw eggs count with shadow
-        font = pygame.font.Font(None, 36)
+        
+        font = pygame.font.Font(None, int(36 * min(self.game.scale_x, self.game.scale_y)))
         eggs_shadow = font.render(f"Eggs: {self.game.eggs}", True, (0, 0, 0))
         eggs_text = font.render(f"Eggs: {self.game.eggs}", True, (255, 255, 255))
-        screen.blit(eggs_shadow, (12, 12))
-        screen.blit(eggs_text, (10, 10))
+        screen.blit(eggs_shadow, (int(12 * self.game.scale_x), int(12 * self.game.scale_y)))
+        screen.blit(eggs_text, (int(10 * self.game.scale_x), int(10 * self.game.scale_y)))
         
         if self.current_game is None:
-            
             subtitle = font.render("Select Game Mode", True, (255, 255, 255))
-            screen.blit(subtitle, (self.game.width//2 - subtitle.get_width()//2, 200))
+            screen.blit(subtitle, (self.game.display_width//2 - subtitle.get_width()//2, int(200 * self.game.scale_y)))
             
             for button in self.mode_buttons.values():
                 button.draw(screen)
         else:
-            # Draw bet amount with shadow
+            
             bet_shadow = font.render(f"Bet: {self.bet_amount}", True, (0, 0, 0))
             bet_text = font.render(f"Bet: {self.bet_amount}", True, (255, 255, 255))
-            bet_rect = bet_text.get_rect(center=(self.game.width//2, 350))
+            bet_rect = bet_text.get_rect(center=(self.game.display_width//2, int(350 * self.game.scale_y)))
             screen.blit(bet_shadow, (bet_rect.x + 2, bet_rect.y + 2))
             screen.blit(bet_text, bet_rect)
             
-            # Draw bet buttons and spin button
+            
             for button in self.bet_buttons.values():
                 button.draw(screen)
             self.spin_button.draw(screen)
@@ -170,7 +170,6 @@ class Gambling:
                 if not self.spinning and self.bet_amount > 0:
                     self.spin_button.draw(screen)
             else:
-                
                 self.draw_wheel(screen)
                 
                 for button in self.bet_buttons.values():
@@ -178,76 +177,89 @@ class Gambling:
                 if not self.wheel_spinning and self.bet_amount > 0:
                     self.spin_button.draw(screen)
                 
-                # Draw debug info
-                debug_text = font.render(f"Wheel Angle: {self.wheel_angle:.1f}°", True, (255, 255, 255))
-                screen.blit(debug_text, (10, 80))
                 
-                current_section = self.get_current_section()
-                if current_section:
-                    section_text = font.render(
-                        f"Current Section: {current_section['name']} ({current_section['multiplier']}x)", 
-                        True, (255, 255, 255)
-                    )
-                    screen.blit(section_text, (10, 120))
-                
-                # Draw rotation counter
-                if self.wheel_spinning:
-                    rotation_text = font.render(f"Rotations: {self.rotation_count}", True, (255, 255, 255))
-                    screen.blit(rotation_text, (10, 160))
-                
-                # Draw debug buttons
-                for button in self.debug_buttons.values():
-                    button.draw(screen)
+                if self.game.debug_mode:
+                    debug_text = font.render(f"Wheel Angle: {self.wheel_angle:.1f}°", True, (255, 255, 255))
+                    screen.blit(debug_text, (int(10 * self.game.scale_x), int(80 * self.game.scale_y)))
+                    
+                    current_section = self.get_current_section()
+                    if current_section:
+                        section_text = font.render(
+                            f"Current Section: {current_section['name']} ({current_section['multiplier']}x)", 
+                            True, (255, 255, 255)
+                        )
+                        screen.blit(section_text, (int(10 * self.game.scale_x), int(120 * self.game.scale_y)))
+                    
+                    
+                    if self.wheel_spinning:
+                        rotation_text = font.render(f"Rotations: {self.rotation_count}", True, (255, 255, 255))
+                        screen.blit(rotation_text, (int(10 * self.game.scale_x), int(160 * self.game.scale_y)))
+                    
+                    
+                    for button in self.debug_buttons.values():
+                        button.draw(screen)
 
         back_text = font.render("Press ESC to return", True, (255, 255, 255))
-        back_rect = back_text.get_rect(center=(self.game.width//2, self.game.height - 50))
+        back_rect = back_text.get_rect(center=(self.game.display_width//2, self.game.display_height - int(50 * self.game.scale_y)))
+        back_shadow = font.render("Press ESC to return", True, (0, 0, 0))
         screen.blit(back_shadow, (back_rect.x + 2, back_rect.y + 2))
         screen.blit(back_text, back_rect)
 
     def draw_slots(self, screen):
-        font = pygame.font.Font(None, 100)
-        slot_width = 150
-        start_x = self.game.width//2 - (slot_width * 1.5)
-        
+        font = pygame.font.Font(None, int(100 * min(self.game.scale_x, self.game.scale_y)))
+        slot_width = int(150 * min(self.game.scale_x, self.game.scale_y))
+        start_x = self.game.display_width//2 - (slot_width * 1.5)
         
         for i in range(3):
-            pygame.draw.rect(screen, (100, 100, 100), (start_x + i * slot_width, 300, slot_width, slot_width), 2)
-        
+            pygame.draw.rect(screen, (100, 100, 100), (start_x + i * slot_width, int(300 * self.game.scale_y), slot_width, slot_width), 2)
         
         for i, symbol in enumerate(self.slot_results):
             text = font.render(symbol, True, (255, 255, 255))
-            text_rect = text.get_rect(center=(start_x + i * slot_width + slot_width//2, 300 + slot_width//2))
+            text_rect = text.get_rect(center=(start_x + i * slot_width + slot_width//2, int(300 * self.game.scale_y) + slot_width//2))
             screen.blit(text, text_rect)
 
-        font = pygame.font.Font(None, 36)
+        font = pygame.font.Font(None, int(36 * min(self.game.scale_x, self.game.scale_y)))
         bet_text = font.render(f"Bet: {self.bet_amount} eggs", True, (255, 255, 255))
-        screen.blit(bet_text, (self.game.width//2 - bet_text.get_width()//2, 400))
+        screen.blit(bet_text, (self.game.display_width//2 - bet_text.get_width()//2, int(400 * self.game.scale_y)))
 
     def draw_wheel(self, screen):
-        center_x = self.game.width//2
-        center_y = self.game.height//2 - 50
+        center_x = self.game.display_width//2
+        center_y = self.game.display_height//2 - int(50 * self.game.scale_y)
 
         if self.wheel_image:
-            # Draw wheel image
-            rotated_wheel = pygame.transform.rotate(self.wheel_image, self.wheel_angle)
+            wheel_size = int(400 * min(self.game.scale_x, self.game.scale_y))
+            scaled_wheel = pygame.transform.scale(self.wheel_image, (wheel_size, wheel_size))
+            rotated_wheel = pygame.transform.rotate(scaled_wheel, self.wheel_angle)
             wheel_rect = rotated_wheel.get_rect(center=(center_x, center_y))
             screen.blit(rotated_wheel, wheel_rect)
         else:
-            
-            radius = 200
+            radius = int(200 * min(self.game.scale_x, self.game.scale_y))
             pygame.draw.circle(screen, (50, 50, 50), (center_x, center_y), radius + 5)
-
         
         pointer_points = [
-            (center_x - 10, center_y - 210),  
-            (center_x + 10, center_y - 210),  
-            (center_x, center_y - 190)        
+            (center_x - int(10 * self.game.scale_x), center_y - int(210 * self.game.scale_y)),
+            (center_x + int(10 * self.game.scale_x), center_y - int(210 * self.game.scale_y)),
+            (center_x, center_y - int(190 * self.game.scale_y))
         ]
         pygame.draw.polygon(screen, (255, 255, 255), pointer_points)
 
-        font = pygame.font.Font(None, 36)
-        bet_text = font.render(f"Bet: {self.bet_amount} eggs", True, (255, 255, 255))
-        screen.blit(bet_text, (self.game.width//2 - bet_text.get_width()//2, center_y + 210))
+        bet_font = pygame.font.Font(None, int(36 * min(self.game.scale_x, self.game.scale_y)))
+        bet_shadow = bet_font.render(f"Bet: {self.bet_amount}", True, (0, 0, 0))
+        bet_text = bet_font.render(f"Bet: {self.bet_amount}", True, (255, 255, 255))
+        bottom_y = self.game.height - 150
+        bet_rect = bet_text.get_rect(center=(center_x, bottom_y + 230))
+        screen.blit(bet_shadow, (bet_rect.x + 2, bet_rect.y + 2))
+        screen.blit(bet_text, bet_rect)
+
+        current_time = pygame.time.get_ticks()
+        if self.last_win and current_time - self.win_display_time < 3000:
+            win_font = pygame.font.Font(None, int(48 * min(self.game.scale_x, self.game.scale_y)))
+            win_text = f"Won: {self.last_win} eggs! (x{self.last_multiplier})"
+            win_shadow = win_font.render(win_text, True, (0, 0, 0))
+            win_text = win_font.render(win_text, True, (255, 215, 0))
+            win_rect = win_text.get_rect(center=(self.game.display_width//2, self.game.display_height//2))
+            screen.blit(win_shadow, (win_rect.x + 2, win_rect.y + 2))
+            screen.blit(win_text, win_rect)
 
     def update(self):
         current_time = pygame.time.get_ticks()
@@ -265,7 +277,7 @@ class Gambling:
                 self.slot_results = [random.choice(self.slots) for _ in range(3)]
 
         if self.wheel_spinning:
-            # Calculate target angle based on odds
+            
             if not hasattr(self, 'target_angle'):
                 target_section = self.get_random_section()
                 self.target_angle = self.get_random_angle_for_section(target_section)
@@ -274,7 +286,7 @@ class Gambling:
                 self.total_rotation = 0
                 self.spin_start_time = current_time
                 
-                # Calculate if target is within 120 degrees of start position
+                
                 angle_diff_from_start = (self.target_angle - self.start_angle) % 360
                 self.target_is_close = angle_diff_from_start <= 120
                 print(f"Target section: {target_section['name']} ({target_section['multiplier']}x)")
@@ -283,11 +295,11 @@ class Gambling:
                 print(f"Angle diff from start: {angle_diff_from_start:.1f}°")
                 print(f"Target is within 120°: {self.target_is_close}")
             
-            # Calculate current angle and distance to target
+
             current_angle = self.wheel_angle % 360
             target_angle = self.target_angle % 360
             
-            # Calculate rotations completed
+
             rotation_this_frame = 360 * delta_time
             self.total_rotation += rotation_this_frame
             self.rotation_count = int(self.total_rotation / 360)  
@@ -298,22 +310,19 @@ class Gambling:
             if self.target_is_close:
                
                 if self.rotation_count >= 2:
-                    # Calculate distance from current position to target
+                    
                     angle_diff_to_target = (target_angle - current_angle) % 360
                     should_ease = angle_diff_to_target <= 120
             else:
-                # If target is far from start, do 3 rotations first
+                
                 if self.rotation_count >= 3:
                     
                     angle_diff_to_target = (target_angle - current_angle) % 360
                     should_ease = angle_diff_to_target <= 120
             
             if should_ease:
-                # Calculate how far we are into the easing (0 to 1)
-                # 0 = 120 degrees away, 1 = at target
                 angle_diff_to_target = (target_angle - current_angle) % 360
                 
-                # If we're very close to target, snap to it
                 if angle_diff_to_target < 0.1 or angle_diff_to_target > 359.9:
                     self.wheel_angle = self.target_angle
                     self.wheel_spinning = False
@@ -347,6 +356,9 @@ class Gambling:
         if current_section:
             winnings = int(self.bet_amount * current_section["multiplier"]) 
             self.game.eggs += winnings
+            self.last_win = winnings
+            self.last_multiplier = current_section["multiplier"]
+            self.win_display_time = pygame.time.get_ticks()
             print(f"Won {winnings} eggs! ({current_section['name']} - {current_section['multiplier']}x)")
 
     def handle_input(self, event):
@@ -382,10 +394,8 @@ class Gambling:
                             if hasattr(self, 'target_angle'):
                                 delattr(self, 'target_angle')
         
-        # Handle escape key
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             if self.wheel_spinning:
-                # End spin immediately and pay out
                 self.wheel_spinning = False
                 if hasattr(self, 'target_angle'):
                     self.wheel_angle = self.target_angle

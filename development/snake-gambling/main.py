@@ -21,39 +21,43 @@ class GameState(Enum):
 class SnakeGame:
     def __init__(self):
         pygame.init()
-        self.width = 1200
-        self.height = 800
-        self.screen = pygame.display.set_mode((self.width, self.height))
+        self.width = 1260
+        self.height = 720
+        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        self.display_width, self.display_height = self.screen.get_size()
+        self.scale_x = self.display_width / self.width
+        self.scale_y = self.display_height / self.height
         pygame.display.set_caption("Snake Game")
         self.clock = pygame.time.Clock()
         self.game_state = GameState.MENU
         self.previous_state = GameState.MENU
-        self.load_save_data()  # Load saved data
+        self.load_save_data()
         self.upgrades = {
             "grow_rate": 1,
             "currency_multiplier": 1
         }
         self.snake_skin = "default"
+        self.owned_skins = {"default"}
         self.shop = Shop(self)
         self.gambling = Gambling(self)
         self.settings = Settings(self)
         self.debug_mode = False
         self.use_arrow_keys = False
         self.setup_buttons()
+        self.load_assets()
         self.reset_game()
         self.direction_queue = []
         self.last_move_time = pygame.time.get_ticks()
-        self.move_interval = 100  # 100ms between moves (10 moves per second)
+        self.move_interval = 100
         self.moving_blocks = []
         self.last_moving_block_time = pygame.time.get_ticks()
-        self.moving_block_interval = random.randint(1500, 3000)  # 1.5 to 3 seconds
+        self.moving_block_interval = random.randint(1500, 3000)
         self.eggs_collected = 0
         self.total_eggs_collected = 0
         
-        # Transition variables
         self.transition_alpha = 0
         self.transition_speed = 0.1
-        self.transition_surface = pygame.Surface((self.width, self.height))
+        self.transition_surface = pygame.Surface((self.display_width, self.display_height))
         self.transition_surface.fill((0, 0, 0))
         self.transition_target = None
         self.transition_start = None
@@ -86,31 +90,43 @@ class SnakeGame:
         center_x = self.width // 2 - button_width // 2
         
         self.menu_buttons = {
-            "play": Button(center_x, 300, button_width, button_height, "Play"),
-            "shop": Button(center_x, 370, button_width, button_height, "Shop"),
-            "gambling": Button(center_x, 440, button_width, button_height, "Gambling"),
-            "settings": Button(center_x, 510, button_width, button_height, "Settings")
+            "play": Button(center_x, 300, button_width, button_height, "Play", self),
+            "shop": Button(center_x, 370, button_width, button_height, "Shop", self),
+            "gambling": Button(center_x, 440, button_width, button_height, "Gambling", self),
+            "settings": Button(center_x, 510, button_width, button_height, "Settings", self)
         }
         
         self.pause_buttons = {
-            "resume": Button(center_x, 300, button_width, button_height, "Resume"),
-            "settings": Button(center_x, 370, button_width, button_height, "Settings"),
-            "main_menu": Button(center_x, 440, button_width, button_height, "Main Menu")
+            "resume": Button(center_x, 300, button_width, button_height, "Resume", self),
+            "settings": Button(center_x, 370, button_width, button_height, "Settings", self),
+            "main_menu": Button(center_x, 440, button_width, button_height, "Main Menu", self)
         }
 
-        # Add debug toggle button to bottom right
         debug_button_width = 100
         debug_button_height = 30
         self.debug_button = Button(
-            self.width - debug_button_width - 20,  # 20px from right edge
-            self.height - debug_button_height - 20,  # 20px from bottom
+            self.width - debug_button_width - 20,  
+            self.height - debug_button_height - 20,  
             debug_button_width,
             debug_button_height,
-            "Debug: OFF"
+            "Debug: OFF",
+            self
+        )
+
+        
+        exit_button_width = 40
+        exit_button_height = 40
+        self.exit_button = Button(
+            self.width - exit_button_width - 20,
+            20, 
+            exit_button_width,
+            exit_button_height,
+            "X",
+            self
         )
 
     def reset_game(self):
-        self.snake = [(self.width//2, self.height//2)]
+        self.snake = [(self.width//2 - (self.width//2 % 20), self.height//2 - (self.height//2 % 20))]
         self.direction = (20, 0)
         self.direction_queue = []
         self.egg_positions = []
@@ -124,18 +140,23 @@ class SnakeGame:
     def generate_obstacles(self):
         self.obstacles = []
         for _ in range(10):
-            x = random.randrange(0, self.width, 20)
-            y = random.randrange(0, self.height, 20)
-            self.obstacles.append((x, y))
+            while True:
+                x = random.randrange(20, self.width - 40, 20)
+                y = random.randrange(20, self.height - 40, 20)
+                pos = (x - (x % 20), y - (y % 20))
+                if pos not in self.obstacles and pos not in self.snake:
+                    self.obstacles.append(pos)
+                    break
 
     def generate_eggs(self):
         self.egg_positions = []
         for _ in range(5):
             while True:
-                x = random.randrange(0, self.width, 20)
-                y = random.randrange(0, self.height, 20)
-                if (x, y) not in self.obstacles and (x, y) not in self.snake:
-                    self.egg_positions.append((x, y))
+                x = random.randrange(20, self.width - 40, 20)
+                y = random.randrange(20, self.height - 40, 20)
+                pos = (x - (x % 20), y - (y % 20))
+                if pos not in self.obstacles and pos not in self.snake and pos not in self.egg_positions:
+                    self.egg_positions.append(pos)
                     break
 
     def start_transition(self, target_state):
@@ -183,7 +204,6 @@ class SnakeGame:
                         self.save_data()
                 
                 if self.game_state == GameState.PLAYING:
-                    # Only add to queue if we have less than 2 directions queued
                     if len(self.direction_queue) < 2:
                         new_direction = None
                         if self.use_arrow_keys:
@@ -216,6 +236,7 @@ class SnakeGame:
                     for button in self.menu_buttons.values():
                         button.handle_event(event)
                     self.debug_button.handle_event(event)
+                    self.exit_button.handle_event(event)
                 elif self.game_state == GameState.PAUSE:
                     for button in self.pause_buttons.values():
                         button.handle_event(event)
@@ -229,6 +250,10 @@ class SnakeGame:
                     if self.debug_button.handle_event(event):
                         self.debug_mode = not self.debug_mode
                         return
+                    if self.exit_button.handle_event(event):
+                        self.save_data()
+                        pygame.quit()
+                        sys.exit()
                     
                     for button_name, button in self.menu_buttons.items():
                         if button.handle_event(event):
@@ -266,15 +291,36 @@ class SnakeGame:
                 elif self.game_state == GameState.GAMBLING:
                     self.gambling.handle_input(event)
 
+    def load_assets(self):
+        self.assets = {
+            "wall": pygame.image.load("assets/wall_block.png").convert_alpha(),
+            "spikes": pygame.image.load("assets/spikes.png").convert_alpha(),
+            "egg": pygame.image.load("assets/egg.png").convert_alpha(),
+            "snake": {
+                "head": {
+                    "up": pygame.image.load("assets/snake_head_up.png").convert_alpha(),
+                    "down": pygame.image.load("assets/snake_head_down.png").convert_alpha(),
+                    "left": pygame.image.load("assets/snake_head_left.png").convert_alpha(),
+                    "right": pygame.image.load("assets/snake_head_right.png").convert_alpha()
+                },
+                "body": pygame.image.load("assets/snake_body.png").convert_alpha(),
+                "tail": {
+                    "up": pygame.image.load("assets/snake_head_up.png").convert_alpha(),
+                    "down": pygame.image.load("assets/snake_head_down.png").convert_alpha(),
+                    "left": pygame.image.load("assets/snake_head_left.png").convert_alpha(),
+                    "right": pygame.image.load("assets/snake_head_right.png").convert_alpha()
+                }
+            }
+        }
+
     def draw(self):
         self.screen.fill((20, 20, 20))
         
         if self.game_state == GameState.MENU:
-            # Draw title with shadow
-            title_font = pygame.font.Font(None, 74)
+            title_font = pygame.font.Font(None, int(74 * min(self.scale_x, self.scale_y)))
             title_shadow = title_font.render("Snake Game", True, (0, 0, 0))
             title_text = title_font.render("Snake Game", True, (255, 255, 255))
-            title_rect = title_text.get_rect(center=(self.width//2, 200))
+            title_rect = title_text.get_rect(center=(self.display_width//2, int(200 * self.scale_y)))
             self.screen.blit(title_shadow, (title_rect.x + 2, title_rect.y + 2))
             self.screen.blit(title_text, title_rect)
             
@@ -283,81 +329,92 @@ class SnakeGame:
             
             self.debug_button.text = "Debug: ON" if self.debug_mode else "Debug: OFF"
             self.debug_button.draw(self.screen)
+            self.exit_button.draw(self.screen)
         
         elif self.game_state == GameState.PLAYING:
-            # Draw grid lines with fade effect
+            # Calculate play area position to center it on screen
+            play_area_x = (self.display_width - self.width) // 2
+            play_area_y = (self.display_height - self.height) // 2
+            
+            # Draw grid lines
             for x in range(0, self.width, 20):
-                pygame.draw.line(self.screen, (30, 30, 30), (x, 0), (x, self.height))
+                scaled_x = play_area_x + x
+                pygame.draw.line(self.screen, (30, 30, 30), (scaled_x, play_area_y), (scaled_x, play_area_y + self.height))
             for y in range(0, self.height, 20):
-                pygame.draw.line(self.screen, (30, 30, 30), (0, y), (self.width, y))
+                scaled_y = play_area_y + y
+                pygame.draw.line(self.screen, (30, 30, 30), (play_area_x, scaled_y), (play_area_x + self.width, scaled_y))
             
-            # Draw snake with gradient effect
+            # Draw walls
+            wall_size = 20
+            for x in range(0, self.width, 20):
+                for y in range(0, self.height, 20):
+                    if x == 0 or x == self.width - 20 or y == 0 or y == self.height - 20:
+                        self.screen.blit(self.assets["wall"], (play_area_x + x, play_area_y + y))
+            
+            # Draw snake
             for i, segment in enumerate(self.snake):
-                alpha = 255 - (i * 2) if i * 2 < 255 else 0
-                color = (0, 255, 0, alpha)
-                pygame.draw.rect(self.screen, color, (segment[0], segment[1], 18, 18))
+                if i == 0:  # Head
+                    if self.direction == (0, -20):
+                        head_img = self.assets["snake"]["head"]["up"]
+                    elif self.direction == (0, 20):
+                        head_img = self.assets["snake"]["head"]["down"]
+                    elif self.direction == (-20, 0):
+                        head_img = self.assets["snake"]["head"]["left"]
+                    else:
+                        head_img = self.assets["snake"]["head"]["right"]
+                    self.screen.blit(head_img, (play_area_x + segment[0], play_area_y + segment[1]))
+                else:  # Body and Tail
+                    self.screen.blit(self.assets["snake"]["body"], (play_area_x + segment[0], play_area_y + segment[1]))
             
-            # Draw eggs with glow effect
+            # Draw eggs
             for egg in self.egg_positions:
-                # Glow
-                for radius in range(12, 8, -1):
-                    alpha = 100 - (radius * 5)
-                    glow_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surface, (255, 255, 0, alpha), (radius, radius), radius)
-                    self.screen.blit(glow_surface, (egg[0] + 10 - radius, egg[1] + 10 - radius))
-                # Egg
-                pygame.draw.circle(self.screen, (255, 255, 0), (egg[0] + 10, egg[1] + 10), 8)
+                self.screen.blit(self.assets["egg"], (play_area_x + egg[0], play_area_y + egg[1]))
             
-            # Draw obstacles with shadow
+            # Draw obstacles
             for obstacle in self.obstacles:
-                pygame.draw.rect(self.screen, (200, 0, 0), (obstacle[0] + 2, obstacle[1] + 2, 18, 18))
-                pygame.draw.rect(self.screen, (255, 0, 0), (obstacle[0], obstacle[1], 18, 18))
+                self.screen.blit(self.assets["spikes"], (play_area_x + obstacle[0], play_area_y + obstacle[1]))
             
-            # Draw moving blocks with trail effect
+            # Draw moving blocks
             for block in self.moving_blocks:
-                pygame.draw.rect(self.screen, (255, 128, 0), (block['pos'][0], block['pos'][1], 18, 18))
+                self.screen.blit(self.assets["spikes"], (play_area_x + block['pos'][0], play_area_y + block['pos'][1]))
             
-            # Draw UI with modern style
-            font = pygame.font.Font(None, 36)
+            # Draw UI with scaling
+            font = pygame.font.Font(None, int(36 * min(self.scale_x, self.scale_y)))
             
-            # Calculate text widths to size the panel
             length_text = font.render(f"Length: {len(self.snake)}", True, (255, 255, 255))
             score_text = font.render(f"Score: {self.total_eggs_collected}", True, (255, 255, 255))
             eggs_text = font.render(f"Eggs: {self.eggs}", True, (255, 255, 255))
             
-            panel_width = max(length_text.get_width(), score_text.get_width(), eggs_text.get_width()) + 40
-            panel_height = 120
+            panel_width = max(length_text.get_width(), score_text.get_width(), eggs_text.get_width()) + int(40 * self.scale_x)
+            panel_height = int(120 * self.scale_y)
             
-            # Background panel for stats
-            panel_rect = pygame.Rect(10, 10, panel_width, panel_height)
-            pygame.draw.rect(self.screen, (30, 30, 30), panel_rect, border_radius=10)
-            pygame.draw.rect(self.screen, (60, 60, 60), panel_rect, 2, border_radius=10)
+            panel_rect = pygame.Rect(int(10 * self.scale_x), int(10 * self.scale_y), panel_width, panel_height)
+            pygame.draw.rect(self.screen, (30, 30, 30), panel_rect, border_radius=int(10 * min(self.scale_x, self.scale_y)))
+            pygame.draw.rect(self.screen, (60, 60, 60), panel_rect, int(2 * min(self.scale_x, self.scale_y)), border_radius=int(10 * min(self.scale_x, self.scale_y)))
             
-            # Stats with shadows
             length_shadow = font.render(f"Length: {len(self.snake)}", True, (0, 0, 0))
             score_shadow = font.render(f"Score: {self.total_eggs_collected}", True, (0, 0, 0))
             eggs_shadow = font.render(f"Eggs: {self.eggs}", True, (0, 0, 0))
             
-            # Center text in panel
-            text_x = 20
-            self.screen.blit(length_shadow, (text_x + 2, 22))
-            self.screen.blit(score_shadow, (text_x + 2, 57))
-            self.screen.blit(eggs_shadow, (text_x + 2, 92))
+            text_x = int(20 * self.scale_x)
+            self.screen.blit(length_shadow, (text_x + 2, int(22 * self.scale_y)))
+            self.screen.blit(score_shadow, (text_x + 2, int(57 * self.scale_y)))
+            self.screen.blit(eggs_shadow, (text_x + 2, int(92 * self.scale_y)))
             
-            self.screen.blit(length_text, (text_x, 20))
-            self.screen.blit(score_text, (text_x, 55))
-            self.screen.blit(eggs_text, (text_x, 90))
+            self.screen.blit(length_text, (text_x, int(20 * self.scale_y)))
+            self.screen.blit(score_text, (text_x, int(55 * self.scale_y)))
+            self.screen.blit(eggs_text, (text_x, int(90 * self.scale_y)))
         
         elif self.game_state == GameState.PAUSE:
-            # Draw semi-transparent overlay
-            overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+
+            overlay = pygame.Surface((self.display_width, self.display_height), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 128))
             self.screen.blit(overlay, (0, 0))
             
-            title_font = pygame.font.Font(None, 74)
+            title_font = pygame.font.Font(None, int(74 * min(self.scale_x, self.scale_y)))
             title_shadow = title_font.render("Paused", True, (0, 0, 0))
             title_text = title_font.render("Paused", True, (255, 255, 255))
-            title_rect = title_text.get_rect(center=(self.width//2, 200))
+            title_rect = title_text.get_rect(center=(self.display_width//2, int(200 * self.scale_y)))
             self.screen.blit(title_shadow, (title_rect.x + 2, title_rect.y + 2))
             self.screen.blit(title_text, title_rect)
             
@@ -379,73 +436,70 @@ class SnakeGame:
     def update(self):
         current_time = pygame.time.get_ticks()
         
-        # Update transition
         self.update_transition()
         
         if self.game_state == GameState.PLAYING:
-            # Update moving blocks
             if current_time - self.last_moving_block_time >= self.moving_block_interval:
                 self.last_moving_block_time = current_time
                 self.moving_block_interval = random.randint(1500, 3000)
                 
-                # Create new moving block
                 side = random.choice(['top', 'right', 'bottom', 'left'])
                 if side == 'top':
-                    x = random.randrange(0, self.width, 20)
-                    y = 0
+                    x = random.randrange(20, self.width - 40, 20)
+                    y = 20
                     direction = (0, 20)
                 elif side == 'right':
-                    x = self.width - 20
-                    y = random.randrange(0, self.height, 20)
+                    x = self.width - 40
+                    y = random.randrange(20, self.height - 40, 20)
                     direction = (-20, 0)
                 elif side == 'bottom':
-                    x = random.randrange(0, self.width, 20)
-                    y = self.height - 20
+                    x = random.randrange(20, self.width - 40, 20)
+                    y = self.height - 40
                     direction = (0, -20)
                 else:  # left
-                    x = 0
-                    y = random.randrange(0, self.height, 20)
+                    x = 20
+                    y = random.randrange(20, self.height - 40, 20)
                     direction = (20, 0)
                 
+                pos = (x - (x % 20), y - (y % 20))
                 self.moving_blocks.append({
-                    'pos': (x, y),
+                    'pos': pos,
                     'direction': direction,
                     'last_move': current_time,
-                    'move_interval': 1000  # Move every second
+                    'move_interval': 1000
                 })
             
-            # Move existing blocks
             for block in self.moving_blocks[:]:
                 if current_time - block['last_move'] >= block['move_interval']:
                     block['last_move'] = current_time
                     new_x = block['pos'][0] + block['direction'][0]
                     new_y = block['pos'][1] + block['direction'][1]
+                    new_pos = (new_x - (new_x % 20), new_y - (new_y % 20))
                     
-                    # Remove block if it goes off screen
-                    if (new_x < 0 or new_x >= self.width or 
-                        new_y < 0 or new_y >= self.height):
+                    if (new_x < 20 or new_x >= self.width - 20 or 
+                        new_y < 20 or new_y >= self.height - 20):
                         self.moving_blocks.remove(block)
                         continue
                     
-                    block['pos'] = (new_x, new_y)
+                    block['pos'] = new_pos
             
-            # Check if it's time to move the snake
             if current_time - self.last_move_time >= self.move_interval:
                 self.last_move_time = current_time
                 
                 if self.direction_queue:
                     self.direction = self.direction_queue.pop(0)
 
-                new_head = (self.snake[0][0] + self.direction[0], self.snake[0][1] + self.direction[1])
+                new_x = self.snake[0][0] + self.direction[0]
+                new_y = self.snake[0][1] + self.direction[1]
+                new_head = (new_x - (new_x % 20), new_y - (new_y % 20))
                 
-                # Check collision with moving blocks
                 for block in self.moving_blocks:
                     if new_head == block['pos']:
                         self.start_transition(GameState.MENU)
                         return
                 
-                if (new_head[0] < 0 or new_head[0] >= self.width or
-                    new_head[1] < 0 or new_head[1] >= self.height or
+                if (new_x < 20 or new_x >= self.width - 20 or
+                    new_y < 20 or new_y >= self.height - 20 or
                     new_head in self.snake or new_head in self.obstacles):
                     self.start_transition(GameState.MENU)
                     return
@@ -473,7 +527,7 @@ class SnakeGame:
             self.handle_input()
             self.update()
             self.draw()
-            self.clock.tick(60)  # Keep 60 FPS for smooth animations
+            self.clock.tick(60)
 
 if __name__ == "__main__":
     game = SnakeGame()
