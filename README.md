@@ -21,6 +21,11 @@ A modern twist on the classic Snake game with gambling and shop features. Collec
 
 1. Clone the repository
 2. Install the required packages:
+
+```
+RUN IN DIRECTORY: \development\snake-gambling\
+```
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -29,7 +34,7 @@ pip install -r requirements.txt
 
 1. Run the game:
 ```bash
-python main.py
+py main.py
 ```
 
 2. Controls:
