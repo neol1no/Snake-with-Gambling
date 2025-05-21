@@ -6,11 +6,10 @@ A modern twist on the classic Snake game with gambling and shop features. Collec
 
 - Classic Snake gameplay with modern graphics
 - Shop system to upgrade your snake
-- Gambling mini-games
+- Gambling
 - Save system for progress
-- Customizable settings
-- Multiple snake skins
-- Moving obstacles and dynamic gameplay
+- Customizable input
+- dynamic gameplay
 
 ## Requirements
 
