@@ -18,8 +18,7 @@
 - upgrade for abilities (length, etc ...)
 
 # shop upgrades
-- egg magnet (increase pickup range)
-- chance for golden egg (gives 10 eggs)
+...
 
 # items (pickup ingame)
 - helmet (tanks one hit)
