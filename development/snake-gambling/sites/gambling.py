@@ -8,10 +8,25 @@ class Gambling:
         self.game = game
         self.current_game = None
         self.bet_amount = 10
-        self.slots = ["🍎", "🍋", "🍇", "🍒", "7️⃣", "💎"]
-        self.slot_results = ["🍎", "🍎", "🍎"]
+        self.slots = ["lemon", "cherry", "orange", "banana", "grape", "strawberry", "melon"]
+        self.slot_multipliers = {
+            "lemon": 1.25,
+            "cherry": 1.5,
+            "orange": 2.0,
+            "banana": 2.5,
+            "grape": 3.0,
+            "strawberry": 5.0,
+            "melon": 7.5
+        }
+        self.slot_results = ["lemon", "lemon", "lemon"]
         self.spinning = False
         self.spin_time = 0
+        self.slot_spin_times = [0, 0, 0]
+        self.slot_spin_delays = [0, 500, 1000]
+        self.slot_spin_speeds = [0, 0, 0]
+        self.max_spin_speed = 100
+        self.acceleration = 200
+        self.deceleration = 150
         self.wheel_angle = 0
         self.wheel_spinning = False
         self.last_frame_time = pygame.time.get_ticks()
@@ -22,8 +37,19 @@ class Gambling:
         self.last_win = None
         self.last_multiplier = None
         self.win_display_time = 0
+        self.non_matching_spins = 0
+        self.max_non_matching_spins = 5
         
-        # Winkel definitionen
+        self.slot_positions = [
+            (34, 142), 
+            (86, 142), 
+            (138, 142) 
+        ]
+        self.slot_size = (50, 50)
+        
+        self.load_slot_assets()
+        
+        # wheel angles
         self.wheel_sections = [
             {"name": "1 POINT", "multiplier": 0.5, "odds": 0.48, "ranges": [
                 (350, 3), (18, 31), (46, 59), (74, 88), (103, 117), (147, 160),
@@ -128,7 +154,6 @@ class Gambling:
     def draw(self, screen):
         screen.fill((20, 20, 20))
         
-        
         font = pygame.font.Font(None, int(74 * min(self.game.scale_x, self.game.scale_y)))
         title_shadow = font.render("Gambling", True, (0, 0, 0))
         title_text = font.render("Gambling", True, (255, 255, 255))
@@ -136,12 +161,14 @@ class Gambling:
         screen.blit(title_shadow, (title_rect.x + 2, title_rect.y + 2))
         screen.blit(title_text, title_rect)
         
-        
         font = pygame.font.Font(None, int(36 * min(self.game.scale_x, self.game.scale_y)))
-        eggs_shadow = font.render(f"Eggs: {self.game.eggs}", True, (0, 0, 0))
-        eggs_text = font.render(f"Eggs: {self.game.eggs}", True, (255, 255, 255))
-        screen.blit(eggs_shadow, (int(12 * self.game.scale_x), int(12 * self.game.scale_y)))
-        screen.blit(eggs_text, (int(10 * self.game.scale_x), int(10 * self.game.scale_y)))
+        eggs_text = font.render(f"{self.game.eggs}", True, (255, 255, 255))
+        eggs_shadow = font.render(f"{self.game.eggs}", True, (0, 0, 0))
+        egg_img = pygame.image.load("assets/egg.png").convert_alpha()
+        egg_img = pygame.transform.scale(egg_img, (int(30 * self.game.scale_x), int(30 * self.game.scale_y)))
+        screen.blit(egg_img, (int(10 * self.game.scale_x), int(10 * self.game.scale_y)))
+        screen.blit(eggs_shadow, (int(45 * self.game.scale_x), int(12 * self.game.scale_y)))
+        screen.blit(eggs_text, (int(43 * self.game.scale_x), int(10 * self.game.scale_y)))
         
         if self.current_game is None:
             subtitle = font.render("Select Game Mode", True, (255, 255, 255))
@@ -206,21 +233,31 @@ class Gambling:
         screen.blit(back_text, back_rect)
 
     def draw_slots(self, screen):
-        font = pygame.font.Font(None, int(100 * min(self.game.scale_x, self.game.scale_y)))
-        slot_width = int(150 * min(self.game.scale_x, self.game.scale_y))
-        start_x = self.game.display_width//2 - (slot_width * 1.5)
-        
-        for i in range(3):
-            pygame.draw.rect(screen, (100, 100, 100), (start_x + i * slot_width, int(300 * self.game.scale_y), slot_width, slot_width), 2)
-        
-        for i, symbol in enumerate(self.slot_results):
-            text = font.render(symbol, True, (255, 255, 255))
-            text_rect = text.get_rect(center=(start_x + i * slot_width + slot_width//2, int(300 * self.game.scale_y) + slot_width//2))
-            screen.blit(text, text_rect)
+        if not self.slot_machine:
+            return
+
+        if self.last_win is not None and pygame.time.get_ticks() - self.win_display_time < 2000:
+            font = pygame.font.Font(None, int(36 * min(self.game.scale_x, self.game.scale_y)))
+            win_text = font.render(f"Win: {self.last_win} eggs!", True, (255, 215, 0))
+            screen.blit(win_text, (self.game.display_width//2 - win_text.get_width()//2, int(200 * self.game.scale_y)))
+
+        slot_machine_rect = self.slot_machine.get_rect(center=(self.game.display_width//2, self.game.display_height//2))
+        screen.blit(self.slot_machine, slot_machine_rect)
+
+        for i, fruit in enumerate(self.slot_results):
+            if fruit in self.fruit_images:
+                fruit_img = self.fruit_images[fruit]
+                slot_x = slot_machine_rect.x + self.slot_positions[i][0]
+                slot_y = slot_machine_rect.y + self.slot_positions[i][1]
+                screen.blit(fruit_img, (slot_x, slot_y))
 
         font = pygame.font.Font(None, int(36 * min(self.game.scale_x, self.game.scale_y)))
-        bet_text = font.render(f"Bet: {self.bet_amount} eggs", True, (255, 255, 255))
-        screen.blit(bet_text, (self.game.display_width//2 - bet_text.get_width()//2, int(400 * self.game.scale_y)))
+        bet_shadow = font.render(f"Bet: {self.bet_amount}", True, (0, 0, 0))
+        bet_text = font.render(f"Bet: {self.bet_amount}", True, (255, 255, 255))
+        bottom_y = self.game.height - 150
+        bet_rect = bet_text.get_rect(center=(self.game.display_width//2, bottom_y + 230))
+        screen.blit(bet_shadow, (bet_rect.x + 2, bet_rect.y + 2))
+        screen.blit(bet_text, bet_rect)
 
     def draw_wheel(self, screen):
         center_x = self.game.display_width//2
@@ -267,14 +304,29 @@ class Gambling:
         self.last_frame_time = current_time
 
         if self.spinning:
-            self.spin_time += 1
-            if self.spin_time >= 30:
-                self.spin_time = 0
+            all_slots_stopped = True
+            for i in range(3):
+                if current_time - self.spin_time >= self.slot_spin_delays[i]:
+                    slot_spin_time = current_time - (self.spin_time + self.slot_spin_delays[i])
+                    
+                    if slot_spin_time < 2000:
+                        all_slots_stopped = False
+                        
+                        if slot_spin_time < 500:
+                            self.slot_spin_speeds[i] = min(self.slot_spin_speeds[i] + self.acceleration * delta_time, self.max_spin_speed)
+                        elif slot_spin_time > 1500:
+                            self.slot_spin_speeds[i] = max(self.slot_spin_speeds[i] - self.deceleration * delta_time, 0)
+                        
+                        if self.slot_spin_speeds[i] > 0 and current_time % int(1000 / self.slot_spin_speeds[i]) < int(500 / self.slot_spin_speeds[i]):
+                            self.slot_results[i] = self.get_weighted_random_fruit(i)
+                    else:
+                        self.slot_spin_speeds[i] = 0
+                        if self.slot_results[i] == self.slot_results[0] and i > 0:
+                            self.slot_results[i] = random.choice([f for f in self.slots if f != self.slot_results[0]])
+
+            if all_slots_stopped:
                 self.spinning = False
                 self.check_slots_win()
-            else:
-                
-                self.slot_results = [random.choice(self.slots) for _ in range(3)]
 
         if self.wheel_spinning:
             
@@ -346,10 +398,43 @@ class Gambling:
             else:
                 self.wheel_angle = (self.wheel_angle + rotation_this_frame) % 360
 
+    def get_weighted_random_fruit(self, index):
+        if self.spinning:
+            available_fruits = [f for f in self.slots if f != self.slot_results[index]]
+            if self.non_matching_spins > 0:
+                if index == 0:
+                    return random.choice(available_fruits)
+                elif index == 1:
+                    if random.random() < min(0.2 * self.non_matching_spins, 0.8):
+                        return self.slot_results[0]
+                    return random.choice(available_fruits)
+                else:
+                    if random.random() < min(0.15 * self.non_matching_spins, 0.6):
+                        return self.slot_results[0]
+                    return random.choice(available_fruits)
+            return random.choice(available_fruits)
+        return random.choice(self.slots)
+
     def check_slots_win(self):
         if len(set(self.slot_results)) == 1:
-            multiplier = 5 if self.slot_results[0] == "💎" else 3
-            self.game.eggs += self.bet_amount * multiplier
+            fruit = self.slot_results[0]
+            multiplier = self.slot_multipliers[fruit] * 3
+            self.non_matching_spins = 0
+        elif len(set(self.slot_results)) == 2:
+            for fruit in set(self.slot_results):
+                if self.slot_results.count(fruit) == 2:
+                    multiplier = self.slot_multipliers[fruit] * 1
+                    self.non_matching_spins = 0
+                    break
+        else:
+            multiplier = 0.5
+            self.non_matching_spins = min(self.non_matching_spins + 1, self.max_non_matching_spins)
+
+        win_amount = int(self.bet_amount * multiplier)
+        self.game.eggs += win_amount
+        self.last_win = win_amount
+        self.last_multiplier = multiplier
+        self.win_display_time = pygame.time.get_ticks()
 
     def check_wheel_win(self):
         current_section = self.get_current_section()
@@ -375,8 +460,8 @@ class Gambling:
             if self.current_game is None:
                 for button_name, button in self.mode_buttons.items():
                     if button.handle_event(event):
-                        if button_name == "wheel": 
-                            self.current_game = button_name
+                        self.current_game = button_name
+                        return
             else:
                 for button_name, button in self.bet_buttons.items():
                     if button.handle_event(event):
@@ -390,9 +475,13 @@ class Gambling:
                     if self.spin_button.handle_event(event):
                         if self.game.eggs >= self.bet_amount:
                             self.game.eggs -= self.bet_amount
-                            self.wheel_spinning = True
-                            if hasattr(self, 'target_angle'):
-                                delattr(self, 'target_angle')
+                            if self.current_game == "slots":
+                                self.spinning = True
+                                self.spin_time = pygame.time.get_ticks()
+                            else:
+                                self.wheel_spinning = True
+                                if hasattr(self, 'target_angle'):
+                                    delattr(self, 'target_angle')
         
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             if self.wheel_spinning:
@@ -403,3 +492,20 @@ class Gambling:
                     delattr(self, 'target_angle')
                 self.game.game_state = GameState.MENU
                 self.current_game = None 
+
+    def load_slot_assets(self):
+        try:
+            self.slot_machine = pygame.image.load("assets/slots_machine.png").convert_alpha()
+            self.fruit_images = {
+                "lemon": pygame.image.load("assets/slots_lemon.png").convert_alpha(),
+                "cherry": pygame.image.load("assets/slots_cherry.png").convert_alpha(),
+                "orange": pygame.image.load("assets/slots_orange.png").convert_alpha(),
+                "banana": pygame.image.load("assets/slots_banana.png").convert_alpha(),
+                "grape": pygame.image.load("assets/slots_grape.png").convert_alpha(),
+                "strawberry": pygame.image.load("assets/slots_strawberry.png").convert_alpha(),
+                "melon": pygame.image.load("assets/slots_watermelon.png").convert_alpha()
+            }
+        except Exception as e:
+            print(f"Error loading slot assets: {e}")
+            self.slot_machine = None
+            self.fruit_images = {}

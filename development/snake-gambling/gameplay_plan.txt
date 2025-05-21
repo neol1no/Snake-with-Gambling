@@ -1,0 +1,49 @@
+# general
+- statistics bottom left in main menu
+- 
+
+# boss fights
+- kind of puzzle based -> you need to move to different points to deal damage to the boss
+- boss has attack patterns (laser bullets, laser beams, ...)
+
+# abilities
+- SPACE bar to trigger
+- speed boost
+- protection from x hits
+- reduce length?
+- ghost mode (phase through solid blocks/moving blocks)
+- time slow
+- other ...
+- recharge abilities with collecting x number of eggs ingame
+- upgrade for abilities (length, etc ...)
+
+# shop upgrades
+- egg magnet (increase pickup range)
+- chance for golden egg (gives 10 eggs)
+
+# items (pickup ingame)
+- helmet (tanks one hit)
+- other ...
+
+# afk egg farmer
+- idle game aspects
+- upgrades
+
+# skin implementation
+- (need to make sprites)
+
+# different worlds
+- forest
+- desert
+- frost 
+- dungeon
+- hell
+
+# different gambling modes
+- blackjack
+- plinko
+- ride the bus (one card gets revealed to the player and then he has to say if the next card is higher or lower then the current one. next move the player has to say if the next card is between the first and second card or not and so on like in schedule 1)
+- tower (you have 3-5 spaces in each line and 1-3 bombs per line)
+- mines (5x5 field and the more diamonds you uncover the greater the multiplier)
+
+- (chicken crossroad)

@@ -34,7 +34,9 @@ class SnakeGame:
         self.load_save_data()
         self.upgrades = {
             "grow_rate": 1,
-            "currency_multiplier": 1
+            "currency_multiplier": 1,
+            "egg_magnet": 0,
+            "golden_egg_chance": 0
         }
         self.snake_skin = "default"
         self.owned_skins = {"default"}
@@ -54,6 +56,9 @@ class SnakeGame:
         self.moving_block_interval = random.randint(1500, 3000)
         self.eggs_collected = 0
         self.total_eggs_collected = 0
+        self.showing_death_summary = False
+        self.death_summary_time = 0
+        self.death_menu_button = Button(self.width//2 - 100, self.height//2 + 100, 200, 50, "Main Menu", self)
         
         self.transition_alpha = 0
         self.transition_speed = 0.1
@@ -63,16 +68,14 @@ class SnakeGame:
         self.transition_start = None
 
     def load_save_data(self):
-        try:
-            if os.path.exists('save_data.json'):
+        self.eggs = 0
+        if os.path.exists('save_data.json'):
+            try:
                 with open('save_data.json', 'r') as f:
                     data = json.load(f)
                     self.eggs = data.get('eggs', 0)
-            else:
-                self.eggs = 0
-        except Exception as e:
-            print(f"Error loading save data: {e}")
-            self.eggs = 0
+            except Exception as e:
+                print(f"Error loading save data: {e}")
 
     def save_data(self):
         try:
@@ -150,6 +153,7 @@ class SnakeGame:
 
     def generate_eggs(self):
         self.egg_positions = []
+        self.egg_types = {}  # Dictionary to store egg types (normal or golden)
         for _ in range(5):
             while True:
                 x = random.randrange(20, self.width - 40, 20)
@@ -157,6 +161,11 @@ class SnakeGame:
                 pos = (x - (x % 20), y - (y % 20))
                 if pos not in self.obstacles and pos not in self.snake and pos not in self.egg_positions:
                     self.egg_positions.append(pos)
+                    # Determine if this egg is golden
+                    if random.random() < (0.05 * self.upgrades["golden_egg_chance"]):
+                        self.egg_types[pos] = "golden"
+                    else:
+                        self.egg_types[pos] = "normal"
                     break
 
     def start_transition(self, target_state):
@@ -203,7 +212,7 @@ class SnakeGame:
                         self.gambling.current_game = None
                         self.save_data()
                 
-                if self.game_state == GameState.PLAYING:
+                if self.game_state == GameState.PLAYING and not self.showing_death_summary:
                     if len(self.direction_queue) < 2:
                         new_direction = None
                         if self.use_arrow_keys:
@@ -244,6 +253,8 @@ class SnakeGame:
                     self.settings.handle_input(event)
                 elif self.game_state == GameState.GAMBLING:
                     self.gambling.handle_input(event)
+                elif self.game_state == GameState.PLAYING and self.showing_death_summary:
+                    self.death_menu_button.handle_event(event)
             
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.game_state == GameState.MENU:
@@ -290,12 +301,18 @@ class SnakeGame:
                     self.shop.handle_click(pygame.mouse.get_pos())
                 elif self.game_state == GameState.GAMBLING:
                     self.gambling.handle_input(event)
+                elif self.game_state == GameState.PLAYING and self.showing_death_summary:
+                    if self.death_menu_button.handle_event(event):
+                        self.showing_death_summary = False
+                        self.reset_game()
+                        self.start_transition(GameState.MENU)
 
     def load_assets(self):
         self.assets = {
             "wall": pygame.image.load("assets/wall_block.png").convert_alpha(),
             "spikes": pygame.image.load("assets/spikes.png").convert_alpha(),
             "egg": pygame.image.load("assets/egg.png").convert_alpha(),
+            "golden_egg": pygame.image.load("assets/golden_egg.png").convert_alpha(),
             "snake": {
                 "head": {
                     "up": pygame.image.load("assets/snake_head_up.png").convert_alpha(),
@@ -332,11 +349,11 @@ class SnakeGame:
             self.exit_button.draw(self.screen)
         
         elif self.game_state == GameState.PLAYING:
-            # Calculate play area position to center it on screen
+            # play area calc
             play_area_x = (self.display_width - self.width) // 2
             play_area_y = (self.display_height - self.height) // 2
             
-            # Draw grid lines
+            # grid lines
             for x in range(0, self.width, 20):
                 scaled_x = play_area_x + x
                 pygame.draw.line(self.screen, (30, 30, 30), (scaled_x, play_area_y), (scaled_x, play_area_y + self.height))
@@ -344,14 +361,14 @@ class SnakeGame:
                 scaled_y = play_area_y + y
                 pygame.draw.line(self.screen, (30, 30, 30), (play_area_x, scaled_y), (play_area_x + self.width, scaled_y))
             
-            # Draw walls
+            # walls
             wall_size = 20
             for x in range(0, self.width, 20):
                 for y in range(0, self.height, 20):
                     if x == 0 or x == self.width - 20 or y == 0 or y == self.height - 20:
                         self.screen.blit(self.assets["wall"], (play_area_x + x, play_area_y + y))
             
-            # Draw snake
+            # snake
             for i, segment in enumerate(self.snake):
                 if i == 0:  # Head
                     if self.direction == (0, -20):
@@ -366,44 +383,89 @@ class SnakeGame:
                 else:  # Body and Tail
                     self.screen.blit(self.assets["snake"]["body"], (play_area_x + segment[0], play_area_y + segment[1]))
             
-            # Draw eggs
+            # eggs
             for egg in self.egg_positions:
-                self.screen.blit(self.assets["egg"], (play_area_x + egg[0], play_area_y + egg[1]))
+                if self.egg_types.get(egg) == "golden":
+                    self.screen.blit(self.assets["golden_egg"], (play_area_x + egg[0], play_area_y + egg[1]))
+                else:
+                    self.screen.blit(self.assets["egg"], (play_area_x + egg[0], play_area_y + egg[1]))
             
-            # Draw obstacles
+            # obstacles
             for obstacle in self.obstacles:
                 self.screen.blit(self.assets["spikes"], (play_area_x + obstacle[0], play_area_y + obstacle[1]))
             
-            # Draw moving blocks
+            # moving blocks
             for block in self.moving_blocks:
                 self.screen.blit(self.assets["spikes"], (play_area_x + block['pos'][0], play_area_y + block['pos'][1]))
             
-            # Draw UI with scaling
+            # UI
             font = pygame.font.Font(None, int(36 * min(self.scale_x, self.scale_y)))
             
             length_text = font.render(f"Length: {len(self.snake)}", True, (255, 255, 255))
             score_text = font.render(f"Score: {self.total_eggs_collected}", True, (255, 255, 255))
-            eggs_text = font.render(f"Eggs: {self.eggs}", True, (255, 255, 255))
             
-            panel_width = max(length_text.get_width(), score_text.get_width(), eggs_text.get_width()) + int(40 * self.scale_x)
-            panel_height = int(120 * self.scale_y)
+            panel_width = max(length_text.get_width(), score_text.get_width()) + int(40 * self.scale_x)
+            panel_height = int(80 * self.scale_y)
             
             panel_rect = pygame.Rect(int(10 * self.scale_x), int(10 * self.scale_y), panel_width, panel_height)
-            pygame.draw.rect(self.screen, (30, 30, 30), panel_rect, border_radius=int(10 * min(self.scale_x, self.scale_y)))
-            pygame.draw.rect(self.screen, (60, 60, 60), panel_rect, int(2 * min(self.scale_x, self.scale_y)), border_radius=int(10 * min(self.scale_x, self.scale_y)))
+            panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+            pygame.draw.rect(panel_surface, (30, 30, 30, 180), panel_surface.get_rect(), border_radius=int(10 * min(self.scale_x, self.scale_y)))
+            pygame.draw.rect(panel_surface, (60, 60, 60, 180), panel_surface.get_rect(), int(2 * min(self.scale_x, self.scale_y)), border_radius=int(10 * min(self.scale_x, self.scale_y)))
+            self.screen.blit(panel_surface, panel_rect)
             
             length_shadow = font.render(f"Length: {len(self.snake)}", True, (0, 0, 0))
             score_shadow = font.render(f"Score: {self.total_eggs_collected}", True, (0, 0, 0))
-            eggs_shadow = font.render(f"Eggs: {self.eggs}", True, (0, 0, 0))
             
             text_x = int(20 * self.scale_x)
             self.screen.blit(length_shadow, (text_x + 2, int(22 * self.scale_y)))
             self.screen.blit(score_shadow, (text_x + 2, int(57 * self.scale_y)))
-            self.screen.blit(eggs_shadow, (text_x + 2, int(92 * self.scale_y)))
             
             self.screen.blit(length_text, (text_x, int(20 * self.scale_y)))
             self.screen.blit(score_text, (text_x, int(55 * self.scale_y)))
-            self.screen.blit(eggs_text, (text_x, int(90 * self.scale_y)))
+
+            if self.debug_mode:
+                debug_font = pygame.font.Font(None, int(24 * min(self.scale_x, self.scale_y)))
+                magnet_range = 20 * self.upgrades["egg_magnet"] if self.upgrades["egg_magnet"] != 0 else 0
+                golden_chance = 5 * self.upgrades["golden_egg_chance"]
+                debug_text = debug_font.render(f"Magnet Range: {magnet_range}px | Golden Chance: {golden_chance}%", True, (255, 255, 255))
+                debug_rect = debug_text.get_rect(topright=(self.display_width - int(20 * self.scale_x), int(20 * self.scale_y)))
+                self.screen.blit(debug_text, debug_rect)
+
+            if self.showing_death_summary:
+                current_time = pygame.time.get_ticks()
+                if current_time - self.death_summary_time < 4000:
+                    summary_width = int(400 * self.scale_x)
+                    summary_height = int(300 * self.scale_y)
+                    summary_x = (self.display_width - summary_width) // 2
+                    summary_y = (self.display_height - summary_height) // 2
+
+                    summary_surface = pygame.Surface((summary_width, summary_height), pygame.SRCALPHA)
+                    pygame.draw.rect(summary_surface, (30, 30, 30, 230), summary_surface.get_rect(), border_radius=int(15 * min(self.scale_x, self.scale_y)))
+                    pygame.draw.rect(summary_surface, (60, 60, 60, 230), summary_surface.get_rect(), int(2 * min(self.scale_x, self.scale_y)), border_radius=int(15 * min(self.scale_x, self.scale_y)))
+                    self.screen.blit(summary_surface, (summary_x, summary_y))
+
+                    title_font = pygame.font.Font(None, int(48 * min(self.scale_x, self.scale_y)))
+                    title_text = title_font.render("Game Over!", True, (255, 255, 255))
+                    title_rect = title_text.get_rect(center=(summary_x + summary_width//2, summary_y + int(50 * self.scale_y)))
+                    self.screen.blit(title_text, title_rect)
+
+                    stats_font = pygame.font.Font(None, int(36 * min(self.scale_x, self.scale_y)))
+                    stats = [
+                        f"Length: {len(self.snake)}",
+                        f"Score: {self.total_eggs_collected}",
+                        f"Eggs Collected: {self.total_eggs_collected}"
+                    ]
+
+                    for i, stat in enumerate(stats):
+                        stat_text = stats_font.render(stat, True, (255, 255, 255))
+                        stat_rect = stat_text.get_rect(center=(summary_x + summary_width//2, summary_y + int(120 + i * 40) * self.scale_y))
+                        self.screen.blit(stat_text, stat_rect)
+
+                    self.death_menu_button.draw(self.screen)
+                else:
+                    self.showing_death_summary = False
+                    self.reset_game()
+                    self.start_transition(GameState.MENU)
         
         elif self.game_state == GameState.PAUSE:
 
@@ -495,28 +557,54 @@ class SnakeGame:
                 
                 for block in self.moving_blocks:
                     if new_head == block['pos']:
-                        self.start_transition(GameState.MENU)
+                        self.showing_death_summary = True
+                        self.death_summary_time = current_time
                         return
                 
                 if (new_x < 20 or new_x >= self.width - 20 or
                     new_y < 20 or new_y >= self.height - 20 or
                     new_head in self.snake or new_head in self.obstacles):
-                    self.start_transition(GameState.MENU)
+                    self.showing_death_summary = True
+                    self.death_summary_time = current_time
                     return
 
                 self.snake.insert(0, new_head)
                 
+                if self.upgrades["egg_magnet"] != 0:
+                    magnet_range = 20 * self.upgrades["egg_magnet"]
+                    for egg in self.egg_positions[:]:
+                        dx = egg[0] - new_head[0]
+                        dy = egg[1] - new_head[1]
+                        distance = (dx * dx + dy * dy) ** 0.5
+                        if distance <= magnet_range:
+                            egg_type = self.egg_types.pop(egg)
+                            self.egg_positions.remove(egg)
+                            if egg_type == "golden":
+                                self.eggs += 10 * self.upgrades["currency_multiplier"]
+                                self.eggs_collected += 10
+                                self.total_eggs_collected += 10 * self.upgrades["currency_multiplier"]
+                            else:
+                                self.eggs += self.upgrades["currency_multiplier"]
+                                self.eggs_collected += 1
+                                self.total_eggs_collected += self.upgrades["currency_multiplier"]
+                
                 if new_head in self.egg_positions:
+                    # Collect the egg at the head position
+                    egg_type = self.egg_types.pop(new_head)
                     self.egg_positions.remove(new_head)
-                    self.eggs += self.upgrades["currency_multiplier"]
-                    self.eggs_collected += 1
-                    self.total_eggs_collected += self.upgrades["currency_multiplier"]
-                    if len(self.egg_positions) == 0:
-                        self.generate_eggs()
-                    if self.eggs_collected >= self.upgrades["grow_rate"]:
-                        self.eggs_collected = 0
+                    if egg_type == "golden":
+                        self.eggs += 10 * self.upgrades["currency_multiplier"]
+                        self.eggs_collected += 10
+                        self.total_eggs_collected += 10 * self.upgrades["currency_multiplier"]
                     else:
-                        self.snake.pop()
+                        self.eggs += self.upgrades["currency_multiplier"]
+                        self.eggs_collected += 1
+                        self.total_eggs_collected += self.upgrades["currency_multiplier"]
+                
+                if len(self.egg_positions) == 0:
+                    self.generate_eggs()
+                if self.eggs_collected >= self.upgrades["grow_rate"]:
+                    self.eggs_collected = 0
                 else:
                     self.snake.pop()
         elif self.game_state == GameState.GAMBLING:
